@@ -15,8 +15,12 @@ public class UserExternalAdapter implements IUserExternalPort {
         try {
             UserResponseDto user = userFeignClient.getUserById(userId);
             return user != null && user.getRole().getId().equals(2L);
+        } catch (feign.FeignException.NotFound e) {
+            // Si el usuario no existe en el otro microservicio, retornamos false para que el UseCase lance la DomainException personalizada.
+            return false;
         } catch (Exception e) {
-            return false; // Si hay error o no existe, no es un propietario válido
+            // Cualquier otro error de conexión también se maneja como false
+            return false;
         }
     }
 }
