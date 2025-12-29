@@ -6,6 +6,7 @@ import com.pragma.powerup.domain.model.DishModel;
 import com.pragma.powerup.domain.model.RestaurantModel;
 import com.pragma.powerup.domain.spi.IDishPersistencePort;
 import com.pragma.powerup.domain.spi.IRestaurantPersistencePort;
+import com.pragma.powerup.domain.spi.IAuthenticationContextPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -25,6 +26,9 @@ class DishUseCaseTest {
 
     @Mock
     private IRestaurantPersistencePort restaurantPersistencePort;
+
+    @Mock
+    private IAuthenticationContextPort authContextPort;
 
     @InjectMocks
     private DishUseCase dishUseCase;
@@ -59,10 +63,11 @@ class DishUseCaseTest {
     @DisplayName("Should save dish successfully when user is the owner")
     void saveDish_Success() {
         // Arrange
+        when(authContextPort.getAuthenticatedUserId()).thenReturn(1L);
         when(restaurantPersistencePort.getRestaurantById(10L)).thenReturn(restaurantModel);
 
         // Act
-        dishUseCase.saveDish(dishModel, ownerId);
+        dishUseCase.saveDish(dishModel);
 
         // Assert
         assertTrue(dishModel.getActive(), "Dish should be active by default");
@@ -78,7 +83,7 @@ class DishUseCaseTest {
 
         // Act & Assert
         DomainException exception = assertThrows(DomainException.class,
-                () -> dishUseCase.saveDish(dishModel, ownerId));
+                () -> dishUseCase.saveDish(dishModel));
 
         assertEquals("The associated restaurant does not exist.", exception.getMessage());
         verify(dishPersistencePort, never()).saveDish(any());
@@ -93,7 +98,7 @@ class DishUseCaseTest {
 
         // Act & Assert
         DomainException exception = assertThrows(DomainException.class,
-                () -> dishUseCase.saveDish(dishModel, wrongOwnerId));
+                () -> dishUseCase.saveDish(dishModel));
 
         assertEquals("Only the owner of the restaurant can create dishes.", exception.getMessage());
         verify(dishPersistencePort, never()).saveDish(any());
@@ -108,7 +113,7 @@ class DishUseCaseTest {
 
         // Act & Assert
         DomainException exception = assertThrows(DomainException.class,
-                () -> dishUseCase.saveDish(dishModel, ownerId));
+                () -> dishUseCase.saveDish(dishModel));
 
         assertEquals("The price must be a positive integer greater than 0.", exception.getMessage());
     }

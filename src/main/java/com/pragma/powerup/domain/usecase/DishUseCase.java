@@ -4,6 +4,7 @@ import com.pragma.powerup.domain.api.IDishServicePort;
 import com.pragma.powerup.domain.exception.DomainException;
 import com.pragma.powerup.domain.model.DishModel;
 import com.pragma.powerup.domain.model.RestaurantModel;
+import com.pragma.powerup.domain.spi.IAuthenticationContextPort;
 import com.pragma.powerup.domain.spi.IDishPersistencePort;
 import com.pragma.powerup.domain.spi.IRestaurantPersistencePort;
 
@@ -11,14 +12,18 @@ public class DishUseCase implements IDishServicePort {
 
     private final IDishPersistencePort dishPersistencePort;
     private final IRestaurantPersistencePort restaurantPersistencePort;
+    private final IAuthenticationContextPort authContextPort;
 
-    public DishUseCase(IDishPersistencePort dishPersistencePort, IRestaurantPersistencePort restaurantPersistencePort) {
+    public DishUseCase(IDishPersistencePort dishPersistencePort, IRestaurantPersistencePort restaurantPersistencePort, IAuthenticationContextPort authContextPort) {
         this.dishPersistencePort = dishPersistencePort;
         this.restaurantPersistencePort = restaurantPersistencePort;
+        this.authContextPort = authContextPort;
     }
 
     @Override
-    public void saveDish(DishModel dishModel, Long ownerId) {
+    public void saveDish(DishModel dishModel) {
+
+        Long authenticatedOwnerId = authContextPort.getAuthenticatedUserId();
         // 1. Validar que el restaurante existe
         RestaurantModel restaurant = restaurantPersistencePort.getRestaurantById(dishModel.getRestaurant().getId());
         if (restaurant == null) {
@@ -26,7 +31,7 @@ public class DishUseCase implements IDishServicePort {
         }
 
         // 2. REGLA DE NEGOCIO: Solo el propietario puede crear platos
-        if (!restaurant.getOwnerId().equals(ownerId)) {
+        if (!restaurant.getOwnerId().equals(authenticatedOwnerId)) {
             throw new DomainException("Only the owner of the restaurant can create dishes.");
         }
 
