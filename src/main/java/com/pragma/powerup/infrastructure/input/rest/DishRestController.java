@@ -18,9 +18,8 @@ public class DishRestController {
 
     @PostMapping("/")
     public ResponseEntity<Void> saveDish(
-            @Valid @RequestBody DishRequestDto dishRequestDto,
-            @RequestHeader("X-Owner-Id") Long ownerId) { // Simulando el ID del dueño del token
-        dishHandler.saveDish(dishRequestDto, ownerId);
+            @Valid @RequestBody DishRequestDto dishRequestDto) { // Simulando el ID del dueño del token
+        dishHandler.saveDish(dishRequestDto);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 }
