@@ -2,7 +2,7 @@ server:
   port: 8082
 spring:
   datasource:
-    url: ${DB_URL:jdbc:mysql://localhost:3306/bd_usuarios?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true}
+    url: ${DB_URL:jdbc:mysql://localhost:3306/bd_plazoleta?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true}
     username: ${DB_USER:root}
     password: ${DB_PASSWORD:1234} # Cambia 1234 por tu clave real si prefieres dejarla aquí de una vez
   jpa:
@@ -16,5 +16,5 @@ spring:
     restart:
       enabled: false
 
-appDescription: "Pragma Powerup"
+appDescription: "Pragma Powerup - Microservicio Plazoleta"
 appVersion: "1.0.0"
