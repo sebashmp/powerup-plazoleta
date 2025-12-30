@@ -22,4 +22,14 @@ public class AuthenticationContextAdapter implements IAuthenticationContextPort 
     public String getSelectedUserEmail() {
         return SecurityContextHolder.getContext().getAuthentication().getName();
     }
+
+    @Override
+    public String getAuthenticatedUserRole() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && !authentication.getAuthorities().isEmpty()) {
+            // Retornamos el primer rol encontrado (ej: ROLE_ADMIN)
+            return authentication.getAuthorities().iterator().next().getAuthority();
+        }
+        return null;
+    }
 }

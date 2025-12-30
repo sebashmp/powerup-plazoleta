@@ -6,4 +6,5 @@ public interface IAuthenticationContextPort {
 
     // Opcionalmente, obtener el ID directamente
     Long getAuthenticatedUserId();
+    String getAuthenticatedUserRole();
 }
