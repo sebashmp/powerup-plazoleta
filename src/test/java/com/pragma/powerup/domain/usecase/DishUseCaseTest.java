@@ -109,12 +109,60 @@ class DishUseCaseTest {
     void saveDish_InvalidPrice_ThrowsException() {
         // Arrange
         dishModel.setPrice(0);
-        when(restaurantPersistencePort.getRestaurantById(10L)).thenReturn(restaurantModel);
+        when(authContextPort.getAuthenticatedUserId()).thenReturn(ownerId);
+        when(restaurantPersistencePort.getRestaurantById(anyLong())).thenReturn(restaurantModel);
 
         // Act & Assert
         DomainException exception = assertThrows(DomainException.class,
                 () -> dishUseCase.saveDish(dishModel));
 
         assertEquals("The price must be a positive integer greater than 0.", exception.getMessage());
+    }
+
+    @Test
+    @DisplayName("Should update dish successfully when owner is valid")
+    void updateDish_Success() {
+        // Arrange
+        Long dishId = 1L;
+        DishModel dishInDb = new DishModel();
+        dishInDb.setPrice(100);
+        dishInDb.setDescription("Old description");
+        RestaurantModel restaurant = new RestaurantModel();
+        restaurant.setOwnerId(1L); // El dueño es el ID 1
+        dishInDb.setRestaurant(restaurant);
+
+        DishModel dishChanges = new DishModel();
+        dishChanges.setPrice(200);
+        dishChanges.setDescription("New description");
+
+        when(dishPersistencePort.findById(dishId)).thenReturn(dishInDb);
+        when(authContextPort.getAuthenticatedUserId()).thenReturn(1L); // Simula dueño logeado
+
+        // Act
+        dishUseCase.updateDish(dishId, dishChanges);
+
+        // Assert
+        assertEquals(200, dishInDb.getPrice());
+        assertEquals("New description", dishInDb.getDescription());
+        verify(dishPersistencePort).updateDish(dishInDb);
+    }
+
+    @Test
+    @DisplayName("Should throw exception when trying to update a non-existent dish")
+    void updateDish_DishNotFound_ThrowsException() {
+        // Arrange
+        Long nonExistentId = 999L;
+        DishModel dishChanges = new DishModel();
+        dishChanges.setPrice(500);
+
+        when(dishPersistencePort.findById(nonExistentId)).thenReturn(null);
+
+        // Act & Assert
+        DomainException exception = assertThrows(DomainException.class,
+                () -> dishUseCase.updateDish(nonExistentId, dishChanges));
+
+        assertEquals("The dish does not exist.", exception.getMessage());
+        // Verificamos que nunca se llamó al puerto de actualización
+        verify(dishPersistencePort, never()).updateDish(any());
     }
 }
