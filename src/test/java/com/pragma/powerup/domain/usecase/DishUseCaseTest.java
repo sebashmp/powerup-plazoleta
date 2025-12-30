@@ -109,7 +109,8 @@ class DishUseCaseTest {
     void saveDish_InvalidPrice_ThrowsException() {
         // Arrange
         dishModel.setPrice(0);
-        when(restaurantPersistencePort.getRestaurantById(10L)).thenReturn(restaurantModel);
+        when(authContextPort.getAuthenticatedUserId()).thenReturn(ownerId);
+        when(restaurantPersistencePort.getRestaurantById(anyLong())).thenReturn(restaurantModel);
 
         // Act & Assert
         DomainException exception = assertThrows(DomainException.class,
@@ -144,5 +145,24 @@ class DishUseCaseTest {
         assertEquals(200, dishInDb.getPrice());
         assertEquals("New description", dishInDb.getDescription());
         verify(dishPersistencePort).updateDish(dishInDb);
+    }
+
+    @Test
+    @DisplayName("Should throw exception when trying to update a non-existent dish")
+    void updateDish_DishNotFound_ThrowsException() {
+        // Arrange
+        Long nonExistentId = 999L;
+        DishModel dishChanges = new DishModel();
+        dishChanges.setPrice(500);
+
+        when(dishPersistencePort.findById(nonExistentId)).thenReturn(null);
+
+        // Act & Assert
+        DomainException exception = assertThrows(DomainException.class,
+                () -> dishUseCase.updateDish(nonExistentId, dishChanges));
+
+        assertEquals("The dish does not exist.", exception.getMessage());
+        // Verificamos que nunca se llamó al puerto de actualización
+        verify(dishPersistencePort, never()).updateDish(any());
     }
 }
