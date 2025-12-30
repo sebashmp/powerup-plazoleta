@@ -9,14 +9,17 @@ import org.springframework.stereotype.Component;
 public class AuthenticationContextAdapter implements IAuthenticationContextPort {
 
     @Override
-    public String getSelectedUserEmail() {
-        // Extrae el email del contexto de seguridad de Spring
+    public Long getAuthenticatedUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        return authentication.getName();
+        if (authentication != null && authentication.getPrincipal() != null) {
+            // El principal lo guardamos como el Email, pero el ID lo guardamos en las credenciales
+            return (Long) authentication.getCredentials();
+        }
+        return null;
     }
 
     @Override
-    public Long getAuthenticatedUserId() {
-        return 1L; // TODO: Implementar extracción real del ID desde el Token
+    public String getSelectedUserEmail() {
+        return SecurityContextHolder.getContext().getAuthentication().getName();
     }
 }
