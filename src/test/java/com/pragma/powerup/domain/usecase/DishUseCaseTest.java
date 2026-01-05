@@ -164,4 +164,43 @@ class DishUseCaseTest {
         // Verificamos que nunca se llamó al puerto de actualización
         verify(dishPersistencePort, never()).updateDish(any());
     }
+
+    @Test
+    @DisplayName("Should change status successfully when owner is valid")
+    void changeDishStatus_Success() {
+        // Arrange
+        Long dishId = 1L;
+        DishModel dishInDb = new DishModel();
+        dishInDb.setActive(true);
+        RestaurantModel restaurant = new RestaurantModel();
+        restaurant.setOwnerId(1L);
+        dishInDb.setRestaurant(restaurant);
+
+        when(dishPersistencePort.findById(dishId)).thenReturn(dishInDb);
+        when(authContextPort.getAuthenticatedUserId()).thenReturn(1L);
+
+        // Act
+        dishUseCase.changeDishStatus(dishId, false);
+
+        // Assert
+        assertFalse(dishInDb.getActive());
+        verify(dishPersistencePort).updateDish(dishInDb);
+    }
+
+    @Test
+    @DisplayName("Should throw exception when trying to change status of a dish from another restaurant")
+    void changeDishStatus_WrongOwner_ThrowsException() {
+        // Arrange
+        Long dishId = 1L;
+        DishModel dishInDb = new DishModel();
+        RestaurantModel restaurant = new RestaurantModel();
+        restaurant.setOwnerId(1L); // Dueño real es ID 1
+        dishInDb.setRestaurant(restaurant);
+
+        when(dishPersistencePort.findById(dishId)).thenReturn(dishInDb);
+        when(authContextPort.getAuthenticatedUserId()).thenReturn(99L); // Intento por ID 99
+
+        // Act & Assert
+        assertThrows(DomainException.class, () -> dishUseCase.changeDishStatus(dishId, false));
+    }
 }
