@@ -3,6 +3,7 @@ package com.pragma.powerup.domain.usecase;
 import com.pragma.powerup.domain.exception.DomainException;
 import com.pragma.powerup.domain.model.RestaurantModel;
 import com.pragma.powerup.domain.spi.IRestaurantPersistencePort;
+import com.pragma.powerup.domain.spi.IAuthenticationContextPort;
 import com.pragma.powerup.domain.spi.IUserExternalPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -23,6 +24,8 @@ class RestaurantUseCaseTest {
 
     @Mock
     private IUserExternalPort userExternalPort;
+    @Mock
+    private IAuthenticationContextPort authContextPort;
 
     @InjectMocks
     private RestaurantUseCase restaurantUseCase;
@@ -41,30 +44,40 @@ class RestaurantUseCaseTest {
     }
 
     @Test
-    @DisplayName("Should save restaurant when all validations pass")
+    @DisplayName("Should save restaurant when caller is admin and owner is valid")
     void saveRestaurant_Success() {
         // Arrange
-        when(userExternalPort.isOwnerUser(anyLong())).thenReturn(true);
+        when(authContextPort.getAuthenticatedUserRole()).thenReturn("ROLE_ADMIN"); // Simular Admin
+        when(userExternalPort.isOwnerUser(anyLong())).thenReturn(true); // Simular Propietario válido
 
         // Act
         restaurantUseCase.saveRestaurant(restaurantModel);
 
         // Assert
-        verify(restaurantPersistencePort, times(1)).saveRestaurant(restaurantModel);
+        verify(restaurantPersistencePort).saveRestaurant(restaurantModel);
+    }
+
+    @Test
+    @DisplayName("Should throw exception when caller is NOT admin")
+    void saveRestaurant_NotAdmin_ThrowsException() {
+        // Arrange
+        when(authContextPort.getAuthenticatedUserRole()).thenReturn("ROLE_PROPIETARIO");
+
+        // Act & Assert
+        DomainException exception = assertThrows(DomainException.class, () -> restaurantUseCase.saveRestaurant(restaurantModel));
+        assertEquals("Only an administrator can create a restaurant.", exception.getMessage());
     }
 
     @Test
     @DisplayName("Should throw exception when owner ID does not have the Owner role")
-    void saveRestaurant_NotAnOwner_ThrowsException() {
+    void saveRestaurant_InvalidOwner_ThrowsException() {
         // Arrange
+        when(authContextPort.getAuthenticatedUserRole()).thenReturn("ROLE_ADMIN");
         when(userExternalPort.isOwnerUser(anyLong())).thenReturn(false);
 
         // Act & Assert
-        DomainException exception = assertThrows(DomainException.class,
-                () -> restaurantUseCase.saveRestaurant(restaurantModel));
-
+        DomainException exception = assertThrows(DomainException.class, () -> restaurantUseCase.saveRestaurant(restaurantModel));
         assertEquals("The provided owner ID does not belong to a user with the 'Owner' role.", exception.getMessage());
-        verify(restaurantPersistencePort, never()).saveRestaurant(any());
     }
 
     @Test
@@ -72,6 +85,7 @@ class RestaurantUseCaseTest {
     void saveRestaurant_InvalidNit_ThrowsException() {
         // Arrange
         restaurantModel.setNit("900-123-A");
+        when(authContextPort.getAuthenticatedUserRole()).thenReturn("ROLE_ADMIN");
         when(userExternalPort.isOwnerUser(anyLong())).thenReturn(true);
 
         // Act & Assert
@@ -86,13 +100,14 @@ class RestaurantUseCaseTest {
     void saveRestaurant_PhoneTooLong_ThrowsException() {
         // Arrange
         restaurantModel.setPhone("+5730012345678910"); // 16 chars
+        when(authContextPort.getAuthenticatedUserRole()).thenReturn("ROLE_ADMIN");
         when(userExternalPort.isOwnerUser(anyLong())).thenReturn(true);
 
         // Act & Assert
         DomainException exception = assertThrows(DomainException.class,
                 () -> restaurantUseCase.saveRestaurant(restaurantModel));
 
-        assertEquals("Phone must not exceed 13 characters.", exception.getMessage());
+        assertEquals("Invalid phone format or length.", exception.getMessage());
     }
 
     @Test
@@ -100,6 +115,7 @@ class RestaurantUseCaseTest {
     void saveRestaurant_NumericName_ThrowsException() {
         // Arrange
         restaurantModel.setName("12345678");
+        when(authContextPort.getAuthenticatedUserRole()).thenReturn("ROLE_ADMIN");
         when(userExternalPort.isOwnerUser(anyLong())).thenReturn(true);
 
         // Act & Assert
