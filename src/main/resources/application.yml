@@ -4,7 +4,7 @@ spring:
   datasource:
     url: ${DB_URL:jdbc:mysql://localhost:3306/bd_plazoleta?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true}
     username: ${DB_USER:root}
-    password: ${DB_PASSWORD:1234} # Cambia 1234 por tu clave real si prefieres dejarla aquí de una vez
+    password: ${DB_PASSWORD:1234}
   jpa:
     hibernate:
       ddl-auto: ${JPA_DDL:update}
