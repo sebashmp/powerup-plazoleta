@@ -93,7 +93,6 @@ class DishUseCaseTest {
     @DisplayName("Should throw exception when user is NOT the owner of the restaurant")
     void saveDish_NotTheOwner_ThrowsException() {
         // Arrange
-        Long wrongOwnerId = 99L;
         when(restaurantPersistencePort.getRestaurantById(10L)).thenReturn(restaurantModel);
 
         // Act & Assert

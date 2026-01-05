@@ -20,7 +20,7 @@ public class DishRestController {
 
     @PostMapping("/")
     public ResponseEntity<Void> saveDish(
-            @Valid @RequestBody DishRequestDto dishRequestDto) { // Simulando el ID del dueño del token
+            @Valid @RequestBody DishRequestDto dishRequestDto) {
         dishHandler.saveDish(dishRequestDto);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
