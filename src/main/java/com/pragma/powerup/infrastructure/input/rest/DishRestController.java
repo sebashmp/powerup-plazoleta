@@ -1,6 +1,7 @@
 package com.pragma.powerup.infrastructure.input.rest;
 
 import com.pragma.powerup.application.dto.request.DishRequestDto;
+import com.pragma.powerup.application.dto.request.DishStatusRequestDto;
 import com.pragma.powerup.application.dto.request.DishUpdateDto;
 import com.pragma.powerup.application.handler.IDishHandler;
 import io.swagger.v3.oas.annotations.Operation;
@@ -32,5 +33,14 @@ public class DishRestController {
             @Valid @RequestBody DishUpdateDto dishUpdateDto) {
         dishHandler.updateDish(id, dishUpdateDto);
         return ResponseEntity.noContent().build(); // 204 No Content
+    }
+
+    @Operation(summary = "Enable or disable a dish")
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<Void> changeDishStatus(
+            @PathVariable Long id,
+            @Valid @RequestBody DishStatusRequestDto dishStatusRequestDto) {
+        dishHandler.changeDishStatus(id, dishStatusRequestDto);
+        return ResponseEntity.noContent().build();
     }
 }

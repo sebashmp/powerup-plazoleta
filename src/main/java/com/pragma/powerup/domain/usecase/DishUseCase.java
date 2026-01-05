@@ -74,4 +74,25 @@ public class DishUseCase implements IDishServicePort {
 
         dishPersistencePort.updateDish(existingDish);
     }
+
+    @Override
+    public void changeDishStatus(Long dishId, Boolean active) {
+        // 1. Buscar el plato
+        DishModel dish = dishPersistencePort.findById(dishId);
+        if (dish == null) {
+            throw new DomainException("The dish does not exist.");
+        }
+
+        // 2. REGLA DE NEGOCIO: El DOMINIO obtiene la identidad del que llama
+        Long authenticatedOwnerId = authContextPort.getAuthenticatedUserId();
+
+        // 3. REGLA DE NEGOCIO: Validar que el dueño del restaurante sea quien modifica
+        if (!dish.getRestaurant().getOwnerId().equals(authenticatedOwnerId)) {
+            throw new DomainException("You can only change status for dishes from your own restaurant.");
+        }
+
+        // 4. Aplicar cambio y guardar
+        dish.setActive(active);
+        dishPersistencePort.updateDish(dish);
+    }
 }
