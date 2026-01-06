@@ -7,6 +7,8 @@ import com.pragma.powerup.domain.spi.IAuthenticationContextPort;
 import com.pragma.powerup.domain.spi.IRestaurantPersistencePort;
 import com.pragma.powerup.domain.spi.IUserExternalPort;
 
+import java.util.List;
+
 public class RestaurantUseCase implements IRestaurantServicePort {
 
     private final IRestaurantPersistencePort restaurantPersistencePort;
@@ -31,6 +33,11 @@ public class RestaurantUseCase implements IRestaurantServicePort {
 
         validateRestaurantRules(restaurantModel);
         restaurantPersistencePort.saveRestaurant(restaurantModel);
+    }
+
+    @Override
+    public List<RestaurantModel> getRestaurants(Integer page, Integer size) {
+        return restaurantPersistencePort.getAllRestaurants(page, size);
     }
 
     private void validateRestaurantRules(RestaurantModel restaurant) {

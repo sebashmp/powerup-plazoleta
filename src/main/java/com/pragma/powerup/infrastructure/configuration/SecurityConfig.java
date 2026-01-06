@@ -25,6 +25,7 @@ public class SecurityConfig {
                 // HU-5: Solo el PROPIETARIO puede crear/modificar platos
                 .antMatchers(HttpMethod.POST, "/dish/").hasRole("PROPIETARIO")
                 .antMatchers(HttpMethod.PUT, "/dish/**").hasRole("PROPIETARIO")
+                .antMatchers(HttpMethod.GET, "/restaurant/").hasRole("CLIENTE")
                 .anyRequest().authenticated()
                 .and()
                 .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
