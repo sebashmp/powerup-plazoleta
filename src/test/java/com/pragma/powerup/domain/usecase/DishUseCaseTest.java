@@ -72,7 +72,7 @@ class DishUseCaseTest {
         // Assert
         assertTrue(dishModel.getActive(), "Dish should be active by default");
         assertEquals(restaurantModel, dishModel.getRestaurant());
-        verify(dishPersistencePort, times(1)).saveDish(dishModel);
+        verify(dishPersistencePort).saveDish(dishModel);
     }
 
     @Test

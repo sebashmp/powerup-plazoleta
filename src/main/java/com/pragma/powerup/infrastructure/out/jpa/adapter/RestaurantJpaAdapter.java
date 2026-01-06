@@ -24,9 +24,9 @@ public class RestaurantJpaAdapter implements IRestaurantPersistencePort {
     public RestaurantModel getRestaurantById(Long id) {
         return restaurantRepository.findById(id)
                 .map(restaurantEntityMapper::toModel)
-                .orElse(null); // Handle null or throw an exception as needed
+                .orElse(null); // Handle null
     }
-
+//Select * from restaurants order by name ASC limit 4 offset 0 (en la request de postman)
     @Override
     public List<RestaurantModel> getAllRestaurants(Integer page, Integer size) {
         // Creamos el objeto de paginación: página, tamaño y ordenado por nombre ASC

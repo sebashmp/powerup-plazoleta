@@ -26,6 +26,7 @@ public class SecurityConfig {
                 .antMatchers(HttpMethod.POST, "/dish/").hasRole("PROPIETARIO")
                 .antMatchers(HttpMethod.PUT, "/dish/**").hasRole("PROPIETARIO")
                 .antMatchers(HttpMethod.GET, "/restaurant/").hasRole("CLIENTE")
+                .antMatchers(HttpMethod.GET, "/dish/restaurant/**").hasRole("CLIENTE")
                 .anyRequest().authenticated()
                 .and()
                 .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);

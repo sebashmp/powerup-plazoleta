@@ -8,6 +8,8 @@ import com.pragma.powerup.domain.spi.IAuthenticationContextPort;
 import com.pragma.powerup.domain.spi.IDishPersistencePort;
 import com.pragma.powerup.domain.spi.IRestaurantPersistencePort;
 
+import java.util.List;
+
 public class DishUseCase implements IDishServicePort {
 
     private final IDishPersistencePort dishPersistencePort;
@@ -94,5 +96,11 @@ public class DishUseCase implements IDishServicePort {
         // 4. Aplicar cambio y guardar
         dish.setActive(active);
         dishPersistencePort.updateDish(dish);
+    }
+
+    @Override
+    public List<DishModel> getDishesByRestaurant(Long restaurantId, Long categoryId, Integer page, Integer size) {
+        // La lógica de negocio dicta que un cliente solo ve lo que está disponible
+        return dishPersistencePort.getDishesByRestaurant(restaurantId, categoryId, page, size);
     }
 }
