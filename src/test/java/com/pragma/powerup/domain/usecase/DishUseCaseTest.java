@@ -1,8 +1,14 @@
 package com.pragma.powerup.domain.usecase;
 
+import com.pragma.powerup.application.dto.response.DishResponseDto;
+import com.pragma.powerup.application.dto.response.PageResponse;
+import com.pragma.powerup.application.handler.impl.DishHandler;
+import com.pragma.powerup.application.mapper.IDishResponseMapper;
+import com.pragma.powerup.domain.api.IDishServicePort;
 import com.pragma.powerup.domain.exception.DomainException;
 import com.pragma.powerup.domain.model.CategoryModel;
 import com.pragma.powerup.domain.model.DishModel;
+import com.pragma.powerup.domain.model.GenericPage;
 import com.pragma.powerup.domain.model.RestaurantModel;
 import com.pragma.powerup.domain.spi.IDishPersistencePort;
 import com.pragma.powerup.domain.spi.IRestaurantPersistencePort;
@@ -15,6 +21,9 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.List;
+
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -32,6 +41,15 @@ class DishUseCaseTest {
 
     @InjectMocks
     private DishUseCase dishUseCase;
+
+    @Mock
+    private IDishServicePort dishServicePort;
+
+    @Mock
+    private IDishResponseMapper dishResponseMapper;
+
+    @InjectMocks
+    private DishHandler dishHandler;
 
     private DishModel dishModel;
     private RestaurantModel restaurantModel;
@@ -203,4 +221,95 @@ class DishUseCaseTest {
         // Act & Assert
         assertThrows(DomainException.class, () -> dishUseCase.changeDishStatus(dishId, false));
     }
+
+    @Test
+    void getDishesByRestaurant_ForwardsParametersAndReturnsGenericPage() {
+        // Arrange
+        Long restaurantId = 1L;
+        Long categoryId = 2L;
+        Integer page = 0;
+        Integer size = 5;
+
+        DishModel d1 = new DishModel();
+        d1.setName("A");
+        DishModel d2 = new DishModel();
+        d2.setName("B");
+
+        GenericPage<DishModel> expectedPage = new GenericPage<>(
+                List.of(d1, d2),
+                page,
+                size,
+                12L,
+                3,
+                true,
+                false,
+                true,
+                false
+        );
+
+        when(dishPersistencePort.getDishesByRestaurant(restaurantId, categoryId, page, size))
+                .thenReturn(expectedPage);
+
+        // Act
+        GenericPage<DishModel> result = dishUseCase.getDishesByRestaurant(restaurantId, categoryId, page, size);
+
+        // Assert
+        assertThat(result).isSameAs(expectedPage);
+        verify(dishPersistencePort, times(1)).getDishesByRestaurant(restaurantId, categoryId, page, size);
+        verifyNoMoreInteractions(dishPersistencePort);
+    }
+
+    @Test
+    void getDishesByRestaurant_MapsGenericPageToPageResponse() {
+        // Arrange
+        Long restaurantId = 1L;
+        Long categoryId = null;
+        Integer page = 0;
+        Integer size = 2;
+
+        DishModel dm1 = new DishModel();
+        dm1.setName("Pizza");
+        DishModel dm2 = new DishModel();
+        dm2.setName("Ensalada");
+
+        GenericPage<DishModel> domainPage = new GenericPage<>(
+                List.of(dm1, dm2),
+                page,
+                size,
+                7L,
+                4,
+                true,
+                false,
+                true,
+                false
+        );
+
+        DishResponseDto dto1 = new DishResponseDto();
+        dto1.setName("Pizza");
+        DishResponseDto dto2 = new DishResponseDto();
+        dto2.setName("Ensalada");
+
+        when(dishServicePort.getDishesByRestaurant(restaurantId, categoryId, page, size)).thenReturn(domainPage);
+        when(dishResponseMapper.toResponseList(domainPage.getContent())).thenReturn(List.of(dto1, dto2));
+
+        // Act
+        PageResponse<DishResponseDto> response = dishHandler.getDishesByRestaurant(restaurantId, categoryId, page, size);
+
+        // Assert
+        assertThat(response).isNotNull();
+        assertThat(response.getPageNumber()).isEqualTo(page);
+        assertThat(response.getPageSize()).isEqualTo(size);
+        assertThat(response.getTotalElements()).isEqualTo(7L);
+        assertThat(response.getTotalPages()).isEqualTo(4);
+        assertThat(response.getFirst()).isTrue();
+        assertThat(response.getLast()).isFalse();
+        assertThat(response.getHasNext()).isTrue();
+        assertThat(response.getHasPrevious()).isFalse();
+
+        verify(dishServicePort, times(1)).getDishesByRestaurant(restaurantId, categoryId, page, size);
+        verify(dishResponseMapper, times(1)).toResponseList(domainPage.getContent());
+        verifyNoMoreInteractions(dishServicePort, dishResponseMapper);
+    }
+
+
 }
