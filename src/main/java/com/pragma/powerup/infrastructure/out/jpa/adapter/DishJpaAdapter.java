@@ -1,6 +1,7 @@
 package com.pragma.powerup.infrastructure.out.jpa.adapter;
 
 import com.pragma.powerup.domain.model.DishModel;
+import com.pragma.powerup.domain.model.GenericPage;
 import com.pragma.powerup.domain.spi.IDishPersistencePort;
 import com.pragma.powerup.infrastructure.out.jpa.entity.DishEntity;
 import com.pragma.powerup.infrastructure.out.jpa.mapper.IDishEntityMapper;
@@ -37,7 +38,7 @@ public class DishJpaAdapter implements IDishPersistencePort {
     }
 
     @Override
-    public List<DishModel> getDishesByRestaurant(Long restaurantId, Long categoryId, Integer page, Integer size) {
+    public GenericPage<DishModel> getDishesByRestaurant(Long restaurantId, Long categoryId, Integer page, Integer size) {
         Pageable pageable = PageRequest.of(page, size);
         Page<DishEntity> dishPage;
 
@@ -47,7 +48,20 @@ public class DishJpaAdapter implements IDishPersistencePort {
             dishPage = dishRepository.findAllByRestaurantIdAndActiveTrue(restaurantId, pageable);
         }
 
-        return dishPage.map(dishEntityMapper::toModel).getContent();
+        List<DishModel> content = dishPage.map(dishEntityMapper::toModel).getContent();
+
+        GenericPage<DishModel> result = new GenericPage<>();
+        result.setContent(content);
+        result.setPageNumber(dishPage.getNumber());
+        result.setPageSize(dishPage.getSize());
+        result.setTotalElements(dishPage.getTotalElements());
+        result.setTotalPages(dishPage.getTotalPages());
+        result.setFirst(dishPage.isFirst());
+        result.setLast(dishPage.isLast());
+        result.setHasNext(!dishPage.isLast());
+        result.setHasPrevious(!dishPage.isFirst());
+
+        return result;
     }
 
 }

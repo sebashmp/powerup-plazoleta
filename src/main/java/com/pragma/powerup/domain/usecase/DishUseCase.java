@@ -3,12 +3,11 @@ package com.pragma.powerup.domain.usecase;
 import com.pragma.powerup.domain.api.IDishServicePort;
 import com.pragma.powerup.domain.exception.DomainException;
 import com.pragma.powerup.domain.model.DishModel;
+import com.pragma.powerup.domain.model.GenericPage;
 import com.pragma.powerup.domain.model.RestaurantModel;
 import com.pragma.powerup.domain.spi.IAuthenticationContextPort;
 import com.pragma.powerup.domain.spi.IDishPersistencePort;
 import com.pragma.powerup.domain.spi.IRestaurantPersistencePort;
-
-import java.util.List;
 
 public class DishUseCase implements IDishServicePort {
 
@@ -69,7 +68,7 @@ public class DishUseCase implements IDishServicePort {
         existingDish.setPrice(dishUpdate.getPrice());
         existingDish.setDescription(dishUpdate.getDescription());
 
-        // 5. Validar precio (reutilizamos la regla de la HU3)
+        // 5. Validar precio (la regla de la HU3)
         if (existingDish.getPrice() <= 0) {
             throw new DomainException("The price must be a positive integer greater than 0.");
         }
@@ -93,13 +92,12 @@ public class DishUseCase implements IDishServicePort {
             throw new DomainException("You can only change status for dishes from your own restaurant.");
         }
 
-        // 4. Aplicar cambio y guardar
         dish.setActive(active);
         dishPersistencePort.updateDish(dish);
     }
 
     @Override
-    public List<DishModel> getDishesByRestaurant(Long restaurantId, Long categoryId, Integer page, Integer size) {
+    public GenericPage<DishModel> getDishesByRestaurant(Long restaurantId, Long categoryId, Integer page, Integer size) {
         // La lógica de negocio dicta que un cliente solo ve lo que está disponible
         return dishPersistencePort.getDishesByRestaurant(restaurantId, categoryId, page, size);
     }

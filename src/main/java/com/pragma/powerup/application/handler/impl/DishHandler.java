@@ -4,12 +4,14 @@ import com.pragma.powerup.application.dto.request.DishRequestDto;
 import com.pragma.powerup.application.dto.request.DishStatusRequestDto;
 import com.pragma.powerup.application.dto.request.DishUpdateDto;
 import com.pragma.powerup.application.dto.response.DishResponseDto;
+import com.pragma.powerup.application.dto.response.PageResponse;
 import com.pragma.powerup.application.handler.IDishHandler;
 import com.pragma.powerup.application.mapper.IDishRequestMapper;
 import com.pragma.powerup.application.mapper.IDishResponseMapper;
 import com.pragma.powerup.application.mapper.IDishUpdateMapper;
 import com.pragma.powerup.domain.api.IDishServicePort;
 import com.pragma.powerup.domain.model.DishModel;
+import com.pragma.powerup.domain.model.GenericPage;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -43,7 +45,26 @@ public class DishHandler implements IDishHandler {
     }
 
     @Override
-    public List<DishResponseDto> getDishesByRestaurant(Long restaurantId, Long categoryId, Integer page, Integer size) {
-        return dishResponseMapper.toResponseList(dishServicePort.getDishesByRestaurant(restaurantId, categoryId, page, size));
+    public PageResponse<DishResponseDto> getDishesByRestaurant(
+            Long restaurantId,
+            Long categoryId,
+            Integer page,
+            Integer size) {
+
+        GenericPage<DishModel> domainPage = dishServicePort.getDishesByRestaurant(restaurantId, categoryId, page, size);
+
+        List<DishResponseDto> dtoContent = dishResponseMapper.toResponseList(domainPage.getContent());
+
+        return new PageResponse<>(
+                dtoContent,
+                domainPage.getPageNumber(),
+                domainPage.getPageSize(),
+                domainPage.getTotalElements(),
+                domainPage.getTotalPages(),
+                domainPage.getFirst(),
+                domainPage.getLast(),
+                domainPage.getHasNext(),
+                domainPage.getHasPrevious()
+        );
     }
 }

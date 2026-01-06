@@ -14,6 +14,7 @@ public class RestaurantUseCase implements IRestaurantServicePort {
     private final IRestaurantPersistencePort restaurantPersistencePort;
     private final IUserExternalPort userExternalPort;
     private final IAuthenticationContextPort authContextPort;
+    private final String ADMIN_ROLE = "ROLE_ADMIN";
 
     public RestaurantUseCase(IRestaurantPersistencePort restaurantPersistencePort,
                              IUserExternalPort userExternalPort,
@@ -27,7 +28,7 @@ public class RestaurantUseCase implements IRestaurantServicePort {
     public void saveRestaurant(RestaurantModel restaurantModel) {
         // 1. REGLA DE NEGOCIO: Validar que el que llama sea Administrador
         String callerRole = authContextPort.getAuthenticatedUserRole();
-        if (!"ROLE_ADMIN".equals(callerRole)) {
+        if (!ADMIN_ROLE.equals(callerRole)) {
             throw new DomainException("Only an administrator can create a restaurant.");
         }
 

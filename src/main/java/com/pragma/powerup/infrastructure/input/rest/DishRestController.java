@@ -4,6 +4,7 @@ import com.pragma.powerup.application.dto.request.DishRequestDto;
 import com.pragma.powerup.application.dto.request.DishStatusRequestDto;
 import com.pragma.powerup.application.dto.request.DishUpdateDto;
 import com.pragma.powerup.application.dto.response.DishResponseDto;
+import com.pragma.powerup.application.dto.response.PageResponse;
 import com.pragma.powerup.application.handler.IDishHandler;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
@@ -48,11 +49,12 @@ public class DishRestController {
 
     @Operation(summary = "Get restaurant menu paginated and filtered by category")
     @GetMapping("/restaurant/{restaurantId}")
-    public ResponseEntity<List<DishResponseDto>> getMenu(
+    public ResponseEntity<PageResponse<DishResponseDto>> getMenu(
             @PathVariable Long restaurantId,
             @RequestParam(required = false) Long categoryId,
             @RequestParam(defaultValue = "0") Integer page,
             @RequestParam(defaultValue = "10") Integer size) {
         return ResponseEntity.ok(dishHandler.getDishesByRestaurant(restaurantId, categoryId, page, size));
     }
+
 }
