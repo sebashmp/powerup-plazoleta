@@ -2,12 +2,11 @@ package com.pragma.powerup.domain.usecase;
 
 import com.pragma.powerup.domain.api.IRestaurantServicePort;
 import com.pragma.powerup.domain.exception.DomainException;
+import com.pragma.powerup.domain.model.GenericPage;
 import com.pragma.powerup.domain.model.RestaurantModel;
 import com.pragma.powerup.domain.spi.IAuthenticationContextPort;
 import com.pragma.powerup.domain.spi.IRestaurantPersistencePort;
 import com.pragma.powerup.domain.spi.IUserExternalPort;
-
-import java.util.List;
 
 public class RestaurantUseCase implements IRestaurantServicePort {
 
@@ -37,7 +36,7 @@ public class RestaurantUseCase implements IRestaurantServicePort {
     }
 
     @Override
-    public List<RestaurantModel> getRestaurants(Integer page, Integer size) {
+    public GenericPage<RestaurantModel> getRestaurants(Integer page, Integer size) {
         return restaurantPersistencePort.getAllRestaurants(page, size);
     }
 

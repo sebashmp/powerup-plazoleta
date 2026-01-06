@@ -1,6 +1,7 @@
 package com.pragma.powerup.application.handler;
 
 import com.pragma.powerup.application.dto.request.RestaurantRequestDto;
+import com.pragma.powerup.application.dto.response.PageResponse;
 import com.pragma.powerup.application.dto.response.RestaurantResponseDto;
 
 import java.util.List;
@@ -8,5 +9,5 @@ import java.util.List;
 public interface IRestaurantHandler {
     void saveRestaurant(RestaurantRequestDto restaurantRequestDto);
 
-    List<RestaurantResponseDto> getRestaurants(Integer page, Integer size);
+    PageResponse<RestaurantResponseDto> getRestaurants(Integer page, Integer size);
 }
