@@ -31,6 +31,11 @@ public class RestaurantHandler implements IRestaurantHandler {
     }
 
     @Override
+    public void linkEmployee(Long restaurantId, Long employeeId) {
+        restaurantServicePort.linkEmployeeToRestaurant(restaurantId, employeeId);
+    }
+
+    @Override
     public PageResponse<RestaurantResponseDto> getRestaurants(Integer page, Integer size) {
         GenericPage<RestaurantModel> domainPage = restaurantServicePort.getRestaurants(page, size);
 

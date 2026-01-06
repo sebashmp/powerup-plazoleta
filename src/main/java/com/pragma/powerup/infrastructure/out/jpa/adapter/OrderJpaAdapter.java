@@ -34,4 +34,9 @@ public class OrderJpaAdapter implements IOrderPersistencePort {
                 .collect(Collectors.toList());
         return orderRepository.existsByClientIdAndStatusIn(clientId, statusStrings);
     }
+
+    @Override
+    public List<OrderModel> getOrdersByStatusAndRestaurant(OrderStatus status, Long restaurantId, Integer page, Integer size) {
+        return List.of();
+    }
 }

@@ -9,4 +9,6 @@ public interface IOrderPersistencePort {
 
     // Para validar que el cliente no tenga pedidos activos
     boolean existsByClientIdAndStatusIn(Long clientId, List<OrderStatus> statuses);
+
+    List<OrderModel> getOrdersByStatusAndRestaurant(OrderStatus status, Long restaurantId, Integer page, Integer size);
 }

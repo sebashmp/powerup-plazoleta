@@ -10,4 +10,5 @@ public interface IRestaurantHandler {
     void saveRestaurant(RestaurantRequestDto restaurantRequestDto);
 
     PageResponse<RestaurantResponseDto> getRestaurants(Integer page, Integer size);
+    void linkEmployee(Long restaurantId, Long employeeId);
 }

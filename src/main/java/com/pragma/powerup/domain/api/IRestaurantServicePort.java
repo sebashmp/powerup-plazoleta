@@ -8,4 +8,5 @@ import java.util.List;
 public interface IRestaurantServicePort {
     void saveRestaurant(RestaurantModel restaurantModel);
     GenericPage<RestaurantModel> getRestaurants(Integer page, Integer size);
+    void linkEmployeeToRestaurant(Long restaurantId, Long employeeId);
 }

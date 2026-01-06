@@ -4,10 +4,7 @@ import com.pragma.powerup.domain.api.IOrderServicePort;
 import com.pragma.powerup.domain.exception.DomainException;
 import com.pragma.powerup.domain.model.OrderModel;
 import com.pragma.powerup.domain.model.OrderStatus;
-import com.pragma.powerup.domain.spi.IAuthenticationContextPort;
-import com.pragma.powerup.domain.spi.IDishPersistencePort;
-import com.pragma.powerup.domain.spi.IOrderPersistencePort;
-import com.pragma.powerup.domain.spi.IRestaurantPersistencePort;
+import com.pragma.powerup.domain.spi.*;
 
 import java.time.LocalDate;
 import java.util.Arrays;
@@ -19,15 +16,18 @@ public class OrderUseCase implements IOrderServicePort {
     private final IRestaurantPersistencePort restaurantPersistencePort;
     private final IDishPersistencePort dishPersistencePort;
     private final IAuthenticationContextPort authContextPort;
+    private final IEmployeeRestaurantPersistencePort employeeRestaurantPersistencePort;
 
     public OrderUseCase(IOrderPersistencePort orderPersistencePort,
                         IRestaurantPersistencePort restaurantPersistencePort,
                         IDishPersistencePort dishPersistencePort,
-                        IAuthenticationContextPort authContextPort) {
+                        IAuthenticationContextPort authContextPort,
+                        IEmployeeRestaurantPersistencePort employeeRestaurantPersistencePort) {
         this.orderPersistencePort = orderPersistencePort;
         this.restaurantPersistencePort = restaurantPersistencePort;
         this.dishPersistencePort = dishPersistencePort;
         this.authContextPort = authContextPort;
+        this.employeeRestaurantPersistencePort = employeeRestaurantPersistencePort;
     }
 
     @Override
@@ -66,5 +66,26 @@ public class OrderUseCase implements IOrderServicePort {
         orderModel.setStatus(OrderStatus.PENDIENTE);
 
         orderPersistencePort.saveOrder(orderModel);
+    }
+
+    @Override
+    public List<OrderModel> getOrdersByStatus(OrderStatus status, Integer page, Integer size) {
+        // 1. Validar que el que llama es un Empleado
+        String callerRole = authContextPort.getAuthenticatedUserRole();
+        if (!"ROLE_EMPLEADO".equals(callerRole)) {
+            throw new DomainException("Only employees can access this service.");
+        }
+
+        // 2. Obtener el ID del empleado desde el Token
+        Long employeeId = authContextPort.getAuthenticatedUserId();
+
+        // 3. REGLA DE NEGOCIO: Buscar a qué restaurante pertenece este empleado
+        Long restaurantId = employeeRestaurantPersistencePort.getRestaurantIdByEmployeeId(employeeId);
+        if (restaurantId == null) {
+            throw new DomainException("The employee is not assigned to any restaurant.");
+        }
+
+        // 4. Retornar los pedidos filtrados por ese restaurante y el estado solicitado
+        return orderPersistencePort.getOrdersByStatusAndRestaurant(status, restaurantId, page, size);
     }
 }

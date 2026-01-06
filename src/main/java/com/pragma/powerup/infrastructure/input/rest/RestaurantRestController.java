@@ -33,4 +33,12 @@ public class RestaurantRestController {
             @RequestParam(defaultValue = "10") Integer size) {
         return ResponseEntity.ok(restaurantHandler.getRestaurants(page, size));
     }
+
+    @PostMapping("/{restaurantId}/employee/{employeeId}")
+    public ResponseEntity<Void> linkEmployee(
+            @PathVariable Long restaurantId,
+            @PathVariable Long employeeId) {
+        restaurantHandler.linkEmployee(restaurantId, employeeId);
+        return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
 }

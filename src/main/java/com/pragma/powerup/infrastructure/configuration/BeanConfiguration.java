@@ -9,15 +9,13 @@ import com.pragma.powerup.domain.usecase.OrderUseCase;
 import com.pragma.powerup.domain.usecase.RestaurantUseCase;
 import com.pragma.powerup.infrastructure.out.feign.IUserFeignClient;
 import com.pragma.powerup.infrastructure.out.feign.adapter.UserExternalAdapter;
-import com.pragma.powerup.infrastructure.out.jpa.adapter.AuthenticationContextAdapter;
-import com.pragma.powerup.infrastructure.out.jpa.adapter.DishJpaAdapter;
-import com.pragma.powerup.infrastructure.out.jpa.adapter.OrderJpaAdapter;
-import com.pragma.powerup.infrastructure.out.jpa.adapter.RestaurantJpaAdapter;
+import com.pragma.powerup.infrastructure.out.jpa.adapter.*;
 import com.pragma.powerup.infrastructure.out.jpa.mapper.IDishEntityMapper;
 import com.pragma.powerup.infrastructure.out.jpa.mapper.IOrderEntityMapper;
 import com.pragma.powerup.infrastructure.out.jpa.mapper.IRestaurantEntityMapper;
 import com.pragma.powerup.infrastructure.out.jpa.repository.IDishRepository;
 import com.pragma.powerup.infrastructure.out.jpa.repository.IOrderRepository;
+import com.pragma.powerup.infrastructure.out.jpa.repository.IRestaurantEmployeeRepository;
 import com.pragma.powerup.infrastructure.out.jpa.repository.IRestaurantRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -32,6 +30,7 @@ public class BeanConfiguration {
 
     private final IRestaurantRepository restaurantRepository;
     private final IRestaurantEntityMapper restaurantEntityMapper;
+    private final IRestaurantEmployeeRepository restaurantEmployeeRepository;
 
     private final IUserFeignClient userFeignClient;
 
@@ -65,8 +64,13 @@ public class BeanConfiguration {
     }
 
     @Bean
+    public IEmployeeRestaurantPersistencePort employeeRestaurantPersistencePort() {
+        return new EmployeeRestaurantJpaAdapter(restaurantEmployeeRepository);
+    }
+
+    @Bean
     public IRestaurantServicePort restaurantServicePort() {
-        return new RestaurantUseCase(restaurantPersistencePort(), userExternalPort(), authContextPort());
+        return new RestaurantUseCase(restaurantPersistencePort(), userExternalPort(), authContextPort(), employeeRestaurantPersistencePort());
     }
 
     @Bean
@@ -80,7 +84,9 @@ public class BeanConfiguration {
                 orderPersistencePort(),
                 restaurantPersistencePort(),
                 dishPersistencePort(),
-                authContextPort()
+                authContextPort(),
+                employeeRestaurantPersistencePort()
+
         );
     }
 }
