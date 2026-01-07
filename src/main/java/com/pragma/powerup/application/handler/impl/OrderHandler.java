@@ -53,4 +53,9 @@ public class OrderHandler implements IOrderHandler {
                 domainPage.getHasPrevious()
         );
     }
+
+    @Override
+    public void assignOrder(Long orderId) {
+        orderServicePort.assignOrder(orderId);
+    }
 }

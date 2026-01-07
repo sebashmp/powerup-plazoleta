@@ -143,4 +143,167 @@ class OrderUseCaseTest {
         assertEquals(1, result.getContent().size());
         assertEquals(1L, result.getTotalElements());
     }
+
+    @Test
+    @DisplayName("Should throw exception when user is not an employee")
+    void assignOrder_shouldFailWhenUserIsNotEmployee() {
+        // Arrange
+        when(authContextPort.getAuthenticatedUserRole())
+                .thenReturn(ROLE_CLIENTE);
+
+        // Act & Assert
+        DomainException exception = assertThrows(
+                DomainException.class,
+                () -> orderUseCase.assignOrder(1L)
+        );
+
+        assertEquals(
+                "Only employees can assign themselves to orders.",
+                exception.getMessage()
+        );
+
+        verify(authContextPort).getAuthenticatedUserRole();
+        verifyNoInteractions(orderPersistencePort);
+        verifyNoInteractions(employeeRestaurantPersistencePort);
+    }
+
+    @Test
+    @DisplayName("Should throw exception when order does not exist")
+    void assignOrder_shouldFailWhenOrderDoesNotExist() {
+        // Arrange
+        when(authContextPort.getAuthenticatedUserRole())
+                .thenReturn(ROLE_EMPLEADO);
+        when(authContextPort.getAuthenticatedUserId())
+                .thenReturn(EMPLOYEE_ID);
+        when(employeeRestaurantPersistencePort.getRestaurantIdByEmployeeId(EMPLOYEE_ID))
+                .thenReturn(RESTAURANT_ID);
+        when(orderPersistencePort.findById(1L))
+                .thenReturn(null);
+
+        // Act & Assert
+        DomainException exception = assertThrows(
+                DomainException.class,
+                () -> orderUseCase.assignOrder(1L)
+        );
+
+        assertEquals(
+                "The order does not exist.",
+                exception.getMessage()
+        );
+
+        verify(orderPersistencePort, never()).saveOrder(any());
+    }
+
+    @Test
+    @DisplayName("Should throw exception when order is not pending")
+    void assignOrder_shouldFailWhenOrderIsNotPending() {
+        // Arrange
+        OrderModel order = OrderTestFactory.validOrder();
+        order.setStatus(OrderStatus.EN_PREPARACION);
+
+        when(authContextPort.getAuthenticatedUserRole())
+                .thenReturn(ROLE_EMPLEADO);
+        when(authContextPort.getAuthenticatedUserId())
+                .thenReturn(EMPLOYEE_ID);
+        when(employeeRestaurantPersistencePort.getRestaurantIdByEmployeeId(EMPLOYEE_ID))
+                .thenReturn(RESTAURANT_ID);
+        when(orderPersistencePort.findById(1L))
+                .thenReturn(order);
+
+        // Act & Assert
+        DomainException exception = assertThrows(
+                DomainException.class,
+                () -> orderUseCase.assignOrder(1L)
+        );
+
+        assertEquals(
+                "Only pending orders can be assigned.",
+                exception.getMessage()
+        );
+
+        verify(orderPersistencePort, never()).saveOrder(any());
+    }
+
+    @Test
+    @DisplayName("Should throw exception when order belongs to another restaurant")
+    void assignOrder_shouldFailWhenOrderFromAnotherRestaurant() {
+        // Arrange
+        OrderModel order = OrderTestFactory.validOrder();
+        order.setStatus(OrderStatus.PENDIENTE);
+        order.setRestaurant(OrderTestFactory.otherRestaurant());
+
+        when(authContextPort.getAuthenticatedUserRole())
+                .thenReturn(ROLE_EMPLEADO);
+        when(authContextPort.getAuthenticatedUserId())
+                .thenReturn(EMPLOYEE_ID);
+        when(employeeRestaurantPersistencePort.getRestaurantIdByEmployeeId(EMPLOYEE_ID))
+                .thenReturn(RESTAURANT_ID);
+        when(orderPersistencePort.findById(1L))
+                .thenReturn(order);
+
+        // Act & Assert
+        DomainException exception = assertThrows(
+                DomainException.class,
+                () -> orderUseCase.assignOrder(1L)
+        );
+
+        assertEquals(
+                "You can only assign yourself to orders from your own restaurant.",
+                exception.getMessage()
+        );
+
+        verify(orderPersistencePort, never()).saveOrder(any());
+    }
+
+    @Test
+    @DisplayName("Should assign order successfully when all rules are met")
+    void assignOrder_shouldAssignSuccessfully() {
+        // Arrange
+        OrderModel order = OrderTestFactory.validOrder();
+        order.setStatus(OrderStatus.PENDIENTE);
+
+        when(authContextPort.getAuthenticatedUserRole())
+                .thenReturn(ROLE_EMPLEADO);
+        when(authContextPort.getAuthenticatedUserId())
+                .thenReturn(EMPLOYEE_ID);
+        when(employeeRestaurantPersistencePort.getRestaurantIdByEmployeeId(EMPLOYEE_ID))
+                .thenReturn(RESTAURANT_ID);
+        when(orderPersistencePort.findById(1L))
+                .thenReturn(order);
+
+        // Act
+        orderUseCase.assignOrder(1L);
+
+        // Assert
+        assertEquals(EMPLOYEE_ID, order.getChefId());
+        assertEquals(OrderStatus.EN_PREPARACION, order.getStatus());
+
+        verify(orderPersistencePort).saveOrder(order);
+    }
+
+    @Test
+    @DisplayName("Should call persistence save with updated order")
+    void assignOrder_shouldPersistUpdatedOrder() {
+        // Arrange
+        OrderModel order = OrderTestFactory.validOrder();
+        order.setStatus(OrderStatus.PENDIENTE);
+
+        when(authContextPort.getAuthenticatedUserRole())
+                .thenReturn(ROLE_EMPLEADO);
+        when(authContextPort.getAuthenticatedUserId())
+                .thenReturn(EMPLOYEE_ID);
+        when(employeeRestaurantPersistencePort.getRestaurantIdByEmployeeId(EMPLOYEE_ID))
+                .thenReturn(RESTAURANT_ID);
+        when(orderPersistencePort.findById(anyLong()))
+                .thenReturn(order);
+
+        // Act
+        orderUseCase.assignOrder(99L);
+
+        // Assert
+        verify(orderPersistencePort).saveOrder(argThat(savedOrder ->
+                savedOrder.getChefId().equals(EMPLOYEE_ID)
+                        && savedOrder.getStatus() == OrderStatus.EN_PREPARACION
+        ));
+    }
 }

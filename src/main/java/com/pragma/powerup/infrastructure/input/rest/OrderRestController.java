@@ -34,4 +34,11 @@ public class OrderRestController {
             @RequestParam(defaultValue = "10") Integer size) {
         return ResponseEntity.ok(orderHandler.getOrdersByStatus(status, page, size));
     }
+
+    @Operation(summary = "Assign an order to the current employee and change status to IN_PREPARATION")
+    @PatchMapping("/{id}/assign")
+    public ResponseEntity<Void> assignOrder(@PathVariable Long id) {
+        orderHandler.assignOrder(id);
+        return ResponseEntity.noContent().build();
+    }
 }

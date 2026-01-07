@@ -7,4 +7,5 @@ import com.pragma.powerup.domain.model.OrderStatus;
 public interface IOrderServicePort {
     void saveOrder(OrderModel orderModel);
     GenericPage<OrderModel> getOrdersByStatus(OrderStatus status, Integer page, Integer size);
+    void assignOrder(Long orderId);
 }

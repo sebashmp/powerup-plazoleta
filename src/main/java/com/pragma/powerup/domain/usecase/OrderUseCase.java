@@ -89,4 +89,40 @@ public class OrderUseCase implements IOrderServicePort {
         // 4. Retornar los pedidos filtrados por ese restaurante y el estado solicitado
         return orderPersistencePort.getOrdersByStatusAndRestaurant(status, restaurantId, page, size);
     }
+
+    @Override
+    public void assignOrder(Long orderId) {
+        // 1. Validar que el que llama sea un Empleado
+        String role = authContextPort.getAuthenticatedUserRole();
+        if (!"ROLE_EMPLEADO".equals(role)) {
+            throw new DomainException("Only employees can assign themselves to orders.");
+        }
+
+        // 2. Obtener el ID del empleado y su restaurante
+        Long employeeId = authContextPort.getAuthenticatedUserId();
+        Long restaurantId = employeeRestaurantPersistencePort.getRestaurantIdByEmployeeId(employeeId);
+
+        // 3. Buscar el pedido
+        OrderModel order = orderPersistencePort.findById(orderId);
+        if (order == null) {
+            throw new DomainException("The order does not exist.");
+        }
+
+        // 4. REGLA: El pedido debe estar en estado PENDIENTE para ser tomado
+        if (order.getStatus() != OrderStatus.PENDIENTE) {
+            throw new DomainException("Only pending orders can be assigned.");
+        }
+
+        // 5. REGLA: El pedido debe ser del mismo restaurante que el empleado
+        if (!order.getRestaurant().getId().equals(restaurantId)) {
+            throw new DomainException("You can only assign yourself to orders from your own restaurant.");
+        }
+
+        // 6. Asignar empleado y cambiar estado
+        order.setChefId(employeeId);
+        order.setStatus(OrderStatus.EN_PREPARACION);
+
+        // 7. Guardar cambios
+        orderPersistencePort.saveOrder(order);
+    }
 }

@@ -11,4 +11,6 @@ public interface IOrderHandler {
     void saveOrder(OrderRequestDto orderRequestDto);
 
     PageResponse<OrderResponseDto> getOrdersByStatus(OrderStatus status, Integer page, Integer size);
+
+    void assignOrder(Long orderId);
 }

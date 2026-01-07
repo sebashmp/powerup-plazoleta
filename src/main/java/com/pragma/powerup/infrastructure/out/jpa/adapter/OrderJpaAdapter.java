@@ -40,6 +40,13 @@ public class OrderJpaAdapter implements IOrderPersistencePort {
     }
 
     @Override
+    public OrderModel findById(Long id) {
+        return orderRepository.findById(id)
+                .map(orderEntityMapper::toModel)
+                .orElse(null);
+    }
+
+    @Override
     public GenericPage<OrderModel> getOrdersByStatusAndRestaurant(OrderStatus status, Long restaurantId, Integer page, Integer size) {
         Pageable pageable = PageRequest.of(page, size);
         Page<OrderEntity> pageResult = orderRepository.findAllByStatusAndRestaurantId(status.name(), restaurantId, pageable);
