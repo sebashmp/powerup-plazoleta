@@ -9,4 +9,5 @@ public interface IOrderServicePort {
     GenericPage<OrderModel> getOrdersByStatus(OrderStatus status, Integer page, Integer size);
     void assignOrder(Long orderId);
     void markOrderAsReady(Long orderId);
+    void deliverOrder(Long orderId, String pin);
 }

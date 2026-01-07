@@ -1,5 +1,6 @@
 package com.pragma.powerup.application.handler;
 
+import com.pragma.powerup.application.dto.request.OrderDeliveryRequestDto;
 import com.pragma.powerup.application.dto.request.OrderRequestDto;
 import com.pragma.powerup.application.dto.response.OrderResponseDto;
 import com.pragma.powerup.application.dto.response.PageResponse;
@@ -16,4 +17,6 @@ public interface IOrderHandler {
 
 
     void markOrderAsReady(Long id);
+
+    void deliverOrder(Long orderId, OrderDeliveryRequestDto requestDto);
 }

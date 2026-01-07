@@ -1,5 +1,6 @@
 package com.pragma.powerup.infrastructure.input.rest;
 
+import com.pragma.powerup.application.dto.request.OrderDeliveryRequestDto;
 import com.pragma.powerup.application.dto.request.OrderRequestDto;
 import com.pragma.powerup.application.dto.response.OrderResponseDto;
 import com.pragma.powerup.application.dto.response.PageResponse;
@@ -46,6 +47,15 @@ public class OrderRestController {
     @PatchMapping("/{id}/ready")
     public ResponseEntity<Void> markAsReady(@PathVariable Long id) {
         orderHandler.markOrderAsReady(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Deliver an order using the security PIN")
+    @PatchMapping("/{id}/deliver")
+    public ResponseEntity<Void> deliverOrder(
+            @PathVariable Long id,
+            @Valid @RequestBody OrderDeliveryRequestDto requestDto) {
+        orderHandler.deliverOrder(id, requestDto);
         return ResponseEntity.noContent().build();
     }
 }

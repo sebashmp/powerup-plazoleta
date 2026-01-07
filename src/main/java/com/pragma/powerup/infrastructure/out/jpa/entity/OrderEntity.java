@@ -21,15 +21,17 @@ public class OrderEntity {
     private Long id;
     private Long clientId;
     private LocalDate date;
-    private String status; // Guardamos el Enum como String
+    private String status;
     private Long chefId;
 
     @ManyToOne
     @JoinColumn(name = "id_restaurante")
     private RestaurantEntity restaurant;
 
-    // Relación uno a muchos con el detalle.
     // cascade = ALL permite que al guardar el pedido se guarden sus platos automáticamente.
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
     private List<OrderDishEntity> orderDishes;
+
+    @Column(name = "security_pin")
+    private String securityPin;
 }

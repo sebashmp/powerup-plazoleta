@@ -171,4 +171,32 @@ public class OrderUseCase implements IOrderServicePort {
         // 8. Persistir cambios
         orderPersistencePort.saveOrder(order);
     }
+
+    @Override
+    public void deliverOrder(Long orderId, String pin) {
+        // 1. Validar Rol
+        if (!"ROLE_EMPLEADO".equals(authContextPort.getAuthenticatedUserRole())) {
+            throw new DomainException("Only employees can deliver orders.");
+        }
+
+        // 2. Buscar pedido
+        OrderModel order = orderPersistencePort.findById(orderId);
+        if (order == null) throw new DomainException("Order not found.");
+
+        // 3. REGLA: Solo pedidos en estado LISTO pueden ser entregados
+        if (order.getStatus() != OrderStatus.LISTO) {
+            throw new DomainException("The order is not ready for delivery.");
+        }
+
+        // 4. REGLA: El PIN debe coincidir
+        if (!order.getSecurityPin().equals(pin)) {
+            throw new DomainException("Invalid security PIN. Delivery rejected.");
+        }
+
+        // 5. Cambiar estado y limpiar PIN (por seguridad)
+        order.setStatus(OrderStatus.ENTREGADO);
+        order.setSecurityPin(null);
+
+        orderPersistencePort.saveOrder(order);
+    }
 }
