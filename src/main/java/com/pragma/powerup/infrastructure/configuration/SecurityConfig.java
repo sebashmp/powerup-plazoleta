@@ -32,6 +32,7 @@ public class SecurityConfig {
                 .antMatchers(HttpMethod.GET, "/api/v1/order").hasRole("CLIENTE")
                 .antMatchers(HttpMethod.PATCH, "/order/*/assign").hasRole("EMPLEADO")
                 .antMatchers(HttpMethod.PATCH, "/order/*/deliver").hasRole("EMPLEADO")
+                .antMatchers(HttpMethod.PATCH, "/order/*/cancel").hasRole("CLIENTE")
                 .anyRequest().authenticated()
                 .and()
                 .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);

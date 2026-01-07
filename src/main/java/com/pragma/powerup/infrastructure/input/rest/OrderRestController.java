@@ -58,4 +58,11 @@ public class OrderRestController {
         orderHandler.deliverOrder(id, requestDto);
         return ResponseEntity.noContent().build();
     }
+
+    @Operation(summary = "Cancel an order (Only if status is PENDING)")
+    @PatchMapping("/{id}/cancel")
+    public ResponseEntity<Void> cancelOrder(@PathVariable Long id) {
+        orderHandler.cancelOrder(id);
+        return ResponseEntity.noContent().build();
+    }
 }

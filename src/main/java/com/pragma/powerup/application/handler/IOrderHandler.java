@@ -19,4 +19,6 @@ public interface IOrderHandler {
     void markOrderAsReady(Long id);
 
     void deliverOrder(Long orderId, OrderDeliveryRequestDto requestDto);
+
+    void cancelOrder(Long orderId);
 }

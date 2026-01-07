@@ -199,4 +199,32 @@ public class OrderUseCase implements IOrderServicePort {
 
         orderPersistencePort.saveOrder(order);
     }
+
+    @Override
+    public void cancelOrder(Long orderId) {
+        // 1. Validar que sea un Cliente
+        if (!"ROLE_CLIENTE".equals(authContextPort.getAuthenticatedUserRole())) {
+            throw new DomainException("Only clients can cancel orders.");
+        }
+
+        // 2. Buscar el pedido
+        OrderModel order = orderPersistencePort.findById(orderId);
+        if (order == null) throw new DomainException("Order not found.");
+
+        // 3. REGLA DE NEGOCIO (Seguridad): Solo el dueño del pedido puede cancelarlo
+        Long clientId = authContextPort.getAuthenticatedUserId();
+        if (!order.getClientId().equals(clientId)) {
+            throw new DomainException("You can only cancel your own orders.");
+        }
+
+        // 4. REGLA DE NEGOCIO: Solo se puede cancelar en estado PENDIENTE
+        if (order.getStatus() != OrderStatus.PENDIENTE) {
+            // Mensaje exacto solicitado en la HU
+            throw new DomainException("Lo sentimos, tu pedido ya está en preparación y no puede cancelarse");
+        }
+
+        // 5. Cambiar estado a CANCELADO y guardar
+        order.setStatus(OrderStatus.CANCELADO);
+        orderPersistencePort.saveOrder(order);
+    }
 }
