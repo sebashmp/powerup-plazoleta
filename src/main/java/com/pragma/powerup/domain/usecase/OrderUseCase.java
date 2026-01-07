@@ -2,6 +2,7 @@ package com.pragma.powerup.domain.usecase;
 
 import com.pragma.powerup.domain.api.IOrderServicePort;
 import com.pragma.powerup.domain.exception.DomainException;
+import com.pragma.powerup.domain.model.GenericPage;
 import com.pragma.powerup.domain.model.OrderModel;
 import com.pragma.powerup.domain.model.OrderStatus;
 import com.pragma.powerup.domain.spi.*;
@@ -69,7 +70,7 @@ public class OrderUseCase implements IOrderServicePort {
     }
 
     @Override
-    public List<OrderModel> getOrdersByStatus(OrderStatus status, Integer page, Integer size) {
+    public GenericPage<OrderModel> getOrdersByStatus(OrderStatus status, Integer page, Integer size) {
         // 1. Validar que el que llama es un Empleado
         String callerRole = authContextPort.getAuthenticatedUserRole();
         if (!"ROLE_EMPLEADO".equals(callerRole)) {

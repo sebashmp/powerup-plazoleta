@@ -2,6 +2,7 @@ package com.pragma.powerup.infrastructure.input.rest;
 
 import com.pragma.powerup.application.dto.request.OrderRequestDto;
 import com.pragma.powerup.application.dto.response.OrderResponseDto;
+import com.pragma.powerup.application.dto.response.PageResponse;
 import com.pragma.powerup.application.handler.IOrderHandler;
 import com.pragma.powerup.domain.model.OrderStatus;
 import io.swagger.v3.oas.annotations.Operation;
@@ -27,7 +28,7 @@ public class OrderRestController {
 
     @Operation(summary = "Get orders filtered by status (For Employees)")
     @GetMapping("/")
-    public ResponseEntity<List<OrderResponseDto>> getOrdersByStatus(
+    public ResponseEntity<PageResponse<OrderResponseDto>> getOrdersByStatus(
             @RequestParam OrderStatus status,
             @RequestParam(defaultValue = "0") Integer page,
             @RequestParam(defaultValue = "10") Integer size) {

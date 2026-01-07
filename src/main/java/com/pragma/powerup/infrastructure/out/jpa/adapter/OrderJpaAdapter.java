@@ -1,5 +1,6 @@
 package com.pragma.powerup.infrastructure.out.jpa.adapter;
 
+import com.pragma.powerup.domain.model.GenericPage;
 import com.pragma.powerup.domain.model.OrderModel;
 import com.pragma.powerup.domain.model.OrderStatus;
 import com.pragma.powerup.domain.spi.IOrderPersistencePort;
@@ -7,6 +8,7 @@ import com.pragma.powerup.infrastructure.out.jpa.entity.OrderEntity;
 import com.pragma.powerup.infrastructure.out.jpa.mapper.IOrderEntityMapper;
 import com.pragma.powerup.infrastructure.out.jpa.repository.IOrderRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
@@ -38,13 +40,22 @@ public class OrderJpaAdapter implements IOrderPersistencePort {
     }
 
     @Override
-    public List<OrderModel> getOrdersByStatusAndRestaurant(OrderStatus status, Long restaurantId, Integer page, Integer size) {
-        // 1. Crear el objeto de paginación
+    public GenericPage<OrderModel> getOrdersByStatusAndRestaurant(OrderStatus status, Long restaurantId, Integer page, Integer size) {
         Pageable pageable = PageRequest.of(page, size);
+        Page<OrderEntity> pageResult = orderRepository.findAllByStatusAndRestaurantId(status.name(), restaurantId, pageable);
 
-        // 2. Ejecutar la consulta en el repositorio (convirtiendo el Enum a String)
-        return orderRepository.findAllByStatusAndRestaurantId(status.name(), restaurantId, pageable)
-                .map(orderEntityMapper::toModel) // Mapear cada OrderEntity a OrderModel
-                .getContent(); // Obtener la lista del objeto Page
+        List<OrderModel> content = pageResult.map(orderEntityMapper::toModel).getContent();
+
+        GenericPage<OrderModel> result = new GenericPage<>();
+        result.setContent(content);
+        result.setPageNumber(pageResult.getNumber());
+        result.setPageSize(pageResult.getSize());
+        result.setTotalElements(pageResult.getTotalElements());
+        result.setTotalPages(pageResult.getTotalPages());
+        result.setFirst(pageResult.isFirst());
+        result.setLast(pageResult.isLast());
+        result.setHasNext(!pageResult.isLast());
+        result.setHasPrevious(!pageResult.isFirst());
+        return result;
     }
 }
