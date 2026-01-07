@@ -1,5 +1,6 @@
 package com.pragma.powerup.infrastructure.out.feign.adapter;
 
+import com.pragma.powerup.domain.model.UserModel;
 import com.pragma.powerup.domain.spi.IUserExternalPort;
 import com.pragma.powerup.infrastructure.out.feign.IUserFeignClient;
 import com.pragma.powerup.infrastructure.out.feign.dto.UserResponseDto;
@@ -24,5 +25,16 @@ public class UserExternalAdapter implements IUserExternalPort {
             // Cualquier otro error de conexión también se maneja como false
             return false;
         }
+    }
+
+    @Override
+    public UserModel getUserById(Long userId) {
+        UserResponseDto response = userFeignClient.getUserById(userId);
+
+        // 2. Traducción técnica a Modelo de Dominio
+        UserModel model = new UserModel();
+        model.setId(response.getId());
+        model.setPhone(response.getPhone()); // Pasamos el teléfono al dominio
+        return model;
     }
 }

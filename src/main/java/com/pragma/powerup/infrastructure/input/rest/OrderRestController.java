@@ -41,4 +41,11 @@ public class OrderRestController {
         orderHandler.assignOrder(id);
         return ResponseEntity.noContent().build();
     }
+
+    @Operation(summary = "Mark order as READY and notify client with PIN")
+    @PatchMapping("/{id}/ready")
+    public ResponseEntity<Void> markAsReady(@PathVariable Long id) {
+        orderHandler.markOrderAsReady(id);
+        return ResponseEntity.noContent().build();
+    }
 }

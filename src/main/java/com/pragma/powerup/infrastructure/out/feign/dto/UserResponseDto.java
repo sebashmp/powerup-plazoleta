@@ -9,5 +9,6 @@ public class UserResponseDto {
     private Long id;
     private String name;
     private String email;
-    private RoleResponseDto role; // Para validar que sea Propietario
+    private String phone;
+    private RoleResponseDto role;
 }

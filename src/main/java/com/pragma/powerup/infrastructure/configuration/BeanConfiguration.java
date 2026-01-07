@@ -7,7 +7,9 @@ import com.pragma.powerup.domain.spi.*;
 import com.pragma.powerup.domain.usecase.DishUseCase;
 import com.pragma.powerup.domain.usecase.OrderUseCase;
 import com.pragma.powerup.domain.usecase.RestaurantUseCase;
+import com.pragma.powerup.infrastructure.out.feign.IMessagingFeignClient;
 import com.pragma.powerup.infrastructure.out.feign.IUserFeignClient;
+import com.pragma.powerup.infrastructure.out.feign.adapter.MessagingExternalAdapter;
 import com.pragma.powerup.infrastructure.out.feign.adapter.UserExternalAdapter;
 import com.pragma.powerup.infrastructure.out.jpa.adapter.*;
 import com.pragma.powerup.infrastructure.out.jpa.mapper.IDishEntityMapper;
@@ -36,6 +38,8 @@ public class BeanConfiguration {
 
     private final IOrderRepository orderRepository;
     private final IOrderEntityMapper orderEntityMapper;
+
+    private final IMessagingFeignClient messagingFeignClient;
 
     @Bean
     public IAuthenticationContextPort authContextPort() {
@@ -79,14 +83,20 @@ public class BeanConfiguration {
     }
 
     @Bean
+    public IMessagingExternalPort messagingExternalPort() {
+        return new MessagingExternalAdapter(messagingFeignClient);
+    }
+
+    @Bean
     public IOrderServicePort orderServicePort() {
         return new OrderUseCase(
                 orderPersistencePort(),
                 restaurantPersistencePort(),
                 dishPersistencePort(),
                 authContextPort(),
-                employeeRestaurantPersistencePort()
-
+                employeeRestaurantPersistencePort(),
+                userExternalPort(),
+                messagingExternalPort()
         );
     }
 }

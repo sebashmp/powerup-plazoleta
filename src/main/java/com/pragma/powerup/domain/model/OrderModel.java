@@ -19,4 +19,5 @@ public class OrderModel {
     private Long chefId; // Se va a poner después (HU-13)
     private RestaurantModel restaurant;
     private List<OrderDishModel> orderDishes;
+    private String securityPin;
 }

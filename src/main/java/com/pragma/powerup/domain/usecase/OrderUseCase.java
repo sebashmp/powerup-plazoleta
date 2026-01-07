@@ -5,6 +5,7 @@ import com.pragma.powerup.domain.exception.DomainException;
 import com.pragma.powerup.domain.model.GenericPage;
 import com.pragma.powerup.domain.model.OrderModel;
 import com.pragma.powerup.domain.model.OrderStatus;
+import com.pragma.powerup.domain.model.UserModel;
 import com.pragma.powerup.domain.spi.*;
 
 import java.time.LocalDate;
@@ -18,17 +19,23 @@ public class OrderUseCase implements IOrderServicePort {
     private final IDishPersistencePort dishPersistencePort;
     private final IAuthenticationContextPort authContextPort;
     private final IEmployeeRestaurantPersistencePort employeeRestaurantPersistencePort;
+    private final IUserExternalPort userExternalPort;
+    private final IMessagingExternalPort messagingExternalPort;
 
     public OrderUseCase(IOrderPersistencePort orderPersistencePort,
                         IRestaurantPersistencePort restaurantPersistencePort,
                         IDishPersistencePort dishPersistencePort,
                         IAuthenticationContextPort authContextPort,
-                        IEmployeeRestaurantPersistencePort employeeRestaurantPersistencePort) {
+                        IEmployeeRestaurantPersistencePort employeeRestaurantPersistencePort,
+                        IUserExternalPort userExternalPort,
+                        IMessagingExternalPort messagingExternalPort) {
         this.orderPersistencePort = orderPersistencePort;
         this.restaurantPersistencePort = restaurantPersistencePort;
         this.dishPersistencePort = dishPersistencePort;
         this.authContextPort = authContextPort;
         this.employeeRestaurantPersistencePort = employeeRestaurantPersistencePort;
+        this.userExternalPort = userExternalPort;
+        this.messagingExternalPort = messagingExternalPort;
     }
 
     @Override
@@ -123,6 +130,45 @@ public class OrderUseCase implements IOrderServicePort {
         order.setStatus(OrderStatus.EN_PREPARACION);
 
         // 7. Guardar cambios
+        orderPersistencePort.saveOrder(order);
+    }
+
+    @Override
+    public void markOrderAsReady(Long orderId) {
+        // 1. Validar que el que llama sea EMPLEADO
+        String role = authContextPort.getAuthenticatedUserRole();
+        if (!"ROLE_EMPLEADO".equals(role)) {
+            throw new DomainException("Only employees can mark orders as ready.");
+        }
+
+        // 2. Buscar el pedido
+        OrderModel order = orderPersistencePort.findById(orderId);
+        if (order == null) throw new DomainException("Order not found.");
+
+        // 3. REGLA: Solo pedidos EN_PREPARACION pueden pasar a LISTO
+        if (order.getStatus() != OrderStatus.EN_PREPARACION) {
+            throw new DomainException("The order is not in preparation.");
+        }
+
+        // 4. REGLA: Solo el CHEF asignado puede marcarlo como listo
+        Long employeeId = authContextPort.getAuthenticatedUserId();
+        if (!order.getChefId().equals(employeeId)) {
+            throw new DomainException("You can only mark as ready orders assigned to you.");
+        }
+
+        // 5. Generar PIN de seguridad (6 dígitos aleatorios)
+        String pin = String.format("%06d", (int)(Math.random() * 1000000));
+        order.setSecurityPin(pin);
+        order.setStatus(OrderStatus.LISTO);
+
+        // 6. Obtener datos del cliente (Necesitamos su teléfono desde el microservicio Usuarios)
+        UserModel client = userExternalPort.getUserById(order.getClientId());
+
+        // 7. Enviar notificación a través del puerto de mensajería
+        String message = "Tu pedido está listo! Reclámalo con el PIN: " + pin;
+        messagingExternalPort.sendMessage(client.getPhone(), message);
+
+        // 8. Persistir cambios
         orderPersistencePort.saveOrder(order);
     }
 }
