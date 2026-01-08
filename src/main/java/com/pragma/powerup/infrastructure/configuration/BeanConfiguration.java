@@ -8,8 +8,10 @@ import com.pragma.powerup.domain.usecase.DishUseCase;
 import com.pragma.powerup.domain.usecase.OrderUseCase;
 import com.pragma.powerup.domain.usecase.RestaurantUseCase;
 import com.pragma.powerup.infrastructure.out.feign.IMessagingFeignClient;
+import com.pragma.powerup.infrastructure.out.feign.ITraceFeignClient;
 import com.pragma.powerup.infrastructure.out.feign.IUserFeignClient;
 import com.pragma.powerup.infrastructure.out.feign.adapter.MessagingExternalAdapter;
+import com.pragma.powerup.infrastructure.out.feign.adapter.TraceExternalAdapter;
 import com.pragma.powerup.infrastructure.out.feign.adapter.UserExternalAdapter;
 import com.pragma.powerup.infrastructure.out.jpa.adapter.*;
 import com.pragma.powerup.infrastructure.out.jpa.mapper.IDishEntityMapper;
@@ -35,11 +37,13 @@ public class BeanConfiguration {
     private final IRestaurantEmployeeRepository restaurantEmployeeRepository;
 
     private final IUserFeignClient userFeignClient;
+    private final IMessagingFeignClient messagingFeignClient;
+    private final ITraceFeignClient traceFeignClient;
 
     private final IOrderRepository orderRepository;
     private final IOrderEntityMapper orderEntityMapper;
 
-    private final IMessagingFeignClient messagingFeignClient;
+
 
     @Bean
     public IAuthenticationContextPort authContextPort() {
@@ -88,6 +92,12 @@ public class BeanConfiguration {
     }
 
     @Bean
+    public ITraceExternalPort traceExternalPort() {
+        return new TraceExternalAdapter(traceFeignClient);
+    }
+
+
+    @Bean
     public IOrderServicePort orderServicePort() {
         return new OrderUseCase(
                 orderPersistencePort(),
@@ -96,7 +106,8 @@ public class BeanConfiguration {
                 authContextPort(),
                 employeeRestaurantPersistencePort(),
                 userExternalPort(),
-                messagingExternalPort()
+                messagingExternalPort(),
+                traceExternalPort()
         );
     }
 }

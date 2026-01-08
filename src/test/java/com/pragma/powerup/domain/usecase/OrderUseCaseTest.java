@@ -38,6 +38,9 @@ class OrderUseCaseTest {
     @Mock
     private IMessagingExternalPort messagingExternalPort;
 
+    @Mock
+    private ITraceExternalPort traceExternalPort;
+
     @InjectMocks
     private OrderUseCase orderUseCase;
 
@@ -289,6 +292,8 @@ class OrderUseCaseTest {
         assertEquals(OrderStatus.EN_PREPARACION, order.getStatus());
 
         verify(orderPersistencePort).saveOrder(order);
+
+        verify(traceExternalPort).saveOrderTrace(any(TraceLogModel.class));
     }
 
     @Test
@@ -359,10 +364,10 @@ class OrderUseCaseTest {
     }
 
     @Test
-    @DisplayName("markOrderAsReady - should fail when caller is not assigned chef")
-    void markOrderAsReady_notChef_throws() {
+    @DisplayName("markOrderAsReady - should fail when caller is not assigned employee")
+    void markOrderAsReady_notAsignedEmployee_throws() {
         order.setStatus(OrderStatus.EN_PREPARACION);
-        order.setChefId(999L); // different chef
+        order.setChefId(999L); // empleado diferente
         when(authContextPort.getAuthenticatedUserRole()).thenReturn(ROLE_EMPLEADO);
         when(orderPersistencePort.findById(1L)).thenReturn(order);
         when(authContextPort.getAuthenticatedUserId()).thenReturn(EMPLOYEE_ID);
@@ -395,12 +400,10 @@ class OrderUseCaseTest {
         // Act
         orderUseCase.markOrderAsReady(1L);
 
-        // Assert: order updated
         assertEquals(OrderStatus.LISTO, order.getStatus());
         assertNotNull(order.getSecurityPin());
         assertEquals(PIN_LENGTH, order.getSecurityPin().length());
 
-        // Assert: messaging was called with phone and message containing the PIN
         verify(userExternalPort).getUserById(CLIENT_ID);
         verify(messagingExternalPort).sendMessage(stringCaptor.capture(), messageCaptor.capture());
 
@@ -408,8 +411,8 @@ class OrderUseCaseTest {
         String sentMessage = messageCaptor.getValue();
 
         assertEquals(client.getPhone(), sentPhone);
+        verify(traceExternalPort, times(1)).saveOrderTrace(any(TraceLogModel.class));
         assertTrue(sentMessage.startsWith(OrderMessages.READY_MESSAGE_PREFIX));
-        // message ends with the same pin set on order
         assertTrue(sentMessage.contains(order.getSecurityPin()));
 
         // Assert: saved
@@ -477,6 +480,7 @@ class OrderUseCaseTest {
         assertEquals(OrderStatus.ENTREGADO, order.getStatus());
         assertNull(order.getSecurityPin());
         verify(orderPersistencePort).saveOrder(order);
+        verify(traceExternalPort).saveOrderTrace(any(TraceLogModel.class));
     }
 
     @Test
@@ -540,5 +544,6 @@ class OrderUseCaseTest {
 
         assertEquals(OrderStatus.CANCELADO, order.getStatus());
         verify(orderPersistencePort).saveOrder(order);
+        verify(traceExternalPort).saveOrderTrace(any(TraceLogModel.class));
     }
 }

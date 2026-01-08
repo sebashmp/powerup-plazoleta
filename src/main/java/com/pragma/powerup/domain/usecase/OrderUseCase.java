@@ -19,6 +19,7 @@ public class OrderUseCase implements IOrderServicePort {
     private final IEmployeeRestaurantPersistencePort employeeRestaurantPersistencePort;
     private final IUserExternalPort userExternalPort;
     private final IMessagingExternalPort messagingExternalPort;
+    private final ITraceExternalPort traceExternalPort;
 
     public OrderUseCase(IOrderPersistencePort orderPersistencePort,
                         IRestaurantPersistencePort restaurantPersistencePort,
@@ -26,7 +27,8 @@ public class OrderUseCase implements IOrderServicePort {
                         IAuthenticationContextPort authContextPort,
                         IEmployeeRestaurantPersistencePort employeeRestaurantPersistencePort,
                         IUserExternalPort userExternalPort,
-                        IMessagingExternalPort messagingExternalPort) {
+                        IMessagingExternalPort messagingExternalPort,
+                        ITraceExternalPort traceExternalPort) {
         this.orderPersistencePort = orderPersistencePort;
         this.restaurantPersistencePort = restaurantPersistencePort;
         this.dishPersistencePort = dishPersistencePort;
@@ -34,6 +36,7 @@ public class OrderUseCase implements IOrderServicePort {
         this.employeeRestaurantPersistencePort = employeeRestaurantPersistencePort;
         this.userExternalPort = userExternalPort;
         this.messagingExternalPort = messagingExternalPort;
+        this.traceExternalPort = traceExternalPort;
     }
 
     @Override
@@ -93,6 +96,7 @@ public class OrderUseCase implements IOrderServicePort {
         Long restaurantId = employeeRestaurantPersistencePort.getRestaurantIdByEmployeeId(employeeId);
 
         OrderModel order = fetchOrderOrThrow(orderId, OrderMessages.ORDER_DOES_NOT_EXIST);
+        String oldStatus = order.getStatus().name();
 
         if (order.getStatus() != OrderStatus.PENDIENTE) {
             throw new DomainException(OrderMessages.ONLY_PENDING_ASSIGN);
@@ -104,6 +108,8 @@ public class OrderUseCase implements IOrderServicePort {
 
         order.setChefId(employeeId);
         order.setStatus(OrderStatus.EN_PREPARACION);
+
+        sendTrace(order, oldStatus, OrderStatus.EN_PREPARACION.name());
 
         orderPersistencePort.saveOrder(order);
     }
@@ -124,6 +130,8 @@ public class OrderUseCase implements IOrderServicePort {
             throw new DomainException(OrderMessages.ONLY_CHEF_CAN_MARK);
         }
 
+        String oldStatus = order.getStatus().name();
+
         String pin = generateSecurityPin();
         order.setSecurityPin(pin);
         order.setStatus(OrderStatus.LISTO);
@@ -133,6 +141,8 @@ public class OrderUseCase implements IOrderServicePort {
         messagingExternalPort.sendMessage(client.getPhone(), message);
 
         orderPersistencePort.saveOrder(order);
+
+        sendTrace(order, oldStatus, OrderStatus.LISTO.name());
     }
 
     @Override
@@ -150,10 +160,12 @@ public class OrderUseCase implements IOrderServicePort {
             throw new DomainException(OrderMessages.INVALID_SECURITY_PIN);
         }
 
+        String oldStatus = order.getStatus().name();
         order.setStatus(OrderStatus.ENTREGADO);
         order.setSecurityPin(null);
 
         orderPersistencePort.saveOrder(order);
+        sendTrace(order, oldStatus, OrderStatus.ENTREGADO.name());
     }
 
     @Override
@@ -172,8 +184,11 @@ public class OrderUseCase implements IOrderServicePort {
             throw new DomainException(OrderMessages.CANNOT_CANCEL_IN_PREPARATION);
         }
 
+        String oldStatus = order.getStatus().name();
+
         order.setStatus(OrderStatus.CANCELADO);
         orderPersistencePort.saveOrder(order);
+        sendTrace(order, oldStatus, OrderStatus.CANCELADO.name());
     }
 
     private void requireRole(String requiredRole, String errorMessage) {
@@ -195,5 +210,16 @@ public class OrderUseCase implements IOrderServicePort {
         int max = (int) Math.pow(10, OrderConstants.PIN_LENGTH);
         int value = ThreadLocalRandom.current().nextInt(0, max);
         return String.format("%0" + OrderConstants.PIN_LENGTH + "d", value);
+    }
+
+    private void sendTrace(OrderModel order, String oldStatus, String newStatus) {
+        TraceLogModel trace = new TraceLogModel(
+                order.getId(),
+                order.getClientId(),
+                oldStatus,
+                newStatus,
+                authContextPort.getAuthenticatedUserId()
+        );
+        traceExternalPort.saveOrderTrace(trace);
     }
 }

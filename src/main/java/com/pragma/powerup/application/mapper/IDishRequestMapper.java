@@ -12,11 +12,8 @@ import org.mapstruct.ReportingPolicy;
         unmappedSourcePolicy = ReportingPolicy.IGNORE)
 public interface IDishRequestMapper {
 
-    // Mapeamos los IDs planos del DTO a los objetos anidados del Modelo
     @Mapping(target = "category.id", source = "categoryId")
     @Mapping(target = "restaurant.id", source = "restaurantId")
     DishModel toModel(DishRequestDto dishRequestDto);
-
-
 
 }

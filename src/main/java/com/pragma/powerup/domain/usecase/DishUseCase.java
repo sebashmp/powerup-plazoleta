@@ -88,10 +88,6 @@ public class DishUseCase implements IDishServicePort {
         );
     }
 
-    /* =========================
-       ===== Helper Methods =====
-       ========================= */
-
     private RestaurantModel fetchRestaurantOrThrow(Long restaurantId) {
         RestaurantModel restaurant =
                 restaurantPersistencePort.getRestaurantById(restaurantId);
