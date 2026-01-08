@@ -23,4 +23,6 @@ public final class OrderTestConstants {
 
     // STATUS
     public static final OrderStatus DEFAULT_STATUS = OrderStatus.PENDIENTE;
+
+    public static final int PIN_LENGTH = 6;
 }

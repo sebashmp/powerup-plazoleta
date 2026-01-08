@@ -1,16 +1,14 @@
 package com.pragma.powerup.domain.usecase;
 
 import com.pragma.powerup.domain.api.IOrderServicePort;
+import com.pragma.powerup.domain.util.OrderConstants;
+import com.pragma.powerup.domain.util.OrderMessages;
 import com.pragma.powerup.domain.exception.DomainException;
-import com.pragma.powerup.domain.model.GenericPage;
-import com.pragma.powerup.domain.model.OrderModel;
-import com.pragma.powerup.domain.model.OrderStatus;
-import com.pragma.powerup.domain.model.UserModel;
+import com.pragma.powerup.domain.model.*;
 import com.pragma.powerup.domain.spi.*;
 
 import java.time.LocalDate;
-import java.util.Arrays;
-import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class OrderUseCase implements IOrderServicePort {
 
@@ -40,160 +38,118 @@ public class OrderUseCase implements IOrderServicePort {
 
     @Override
     public void saveOrder(OrderModel orderModel) {
-        // 1. Obtener el ID del cliente autenticado
         Long clientId = authContextPort.getAuthenticatedUserId();
         orderModel.setClientId(clientId);
 
-        // 2. REGLA: El cliente no debe tener pedidos en proceso
-        List<OrderStatus> activeStatuses = Arrays.asList(
-                OrderStatus.PENDIENTE,
-                OrderStatus.EN_PREPARACION,
-                OrderStatus.LISTO
-        );
-        if (orderPersistencePort.existsByClientIdAndStatusIn(clientId, activeStatuses)) {
-            throw new DomainException("You already have an active order in progress.");
+        if (orderPersistencePort.existsByClientIdAndStatusIn(clientId, OrderConstants.ACTIVE_STATUSES)) {
+            throw new DomainException(OrderMessages.ACTIVE_ORDER_IN_PROGRESS);
         }
 
-        // 3. REGLA: Validar que el restaurante existe
-        if (restaurantPersistencePort.getRestaurantById(orderModel.getRestaurant().getId()) == null) {
-            throw new DomainException("The specified restaurant does not exist.");
-        }
+        ensureRestaurantExists(orderModel.getRestaurant().getId());
 
-        // 4. REGLA: Validar que todos los platos pertenecen al restaurante
-        orderModel.getOrderDishes().forEach(orderDish -> {
-            var dish = dishPersistencePort.findById(orderDish.getDish().getId());
-            if (dish == null || !dish.getRestaurant().getId().equals(orderModel.getRestaurant().getId())) {
-                throw new DomainException("One or more dishes do not belong to the selected restaurant.");
-            }
-            // Inyectamos el plato completo al detalle para persistencia posterior
-            orderDish.setDish(dish);
-        });
+        orderModel.getOrderDishes().forEach(orderDish -> validateAndFillDish(orderDish, orderModel.getRestaurant().getId()));
 
-        // 5. Configuración inicial del pedido
         orderModel.setDate(LocalDate.now());
         orderModel.setStatus(OrderStatus.PENDIENTE);
 
         orderPersistencePort.saveOrder(orderModel);
     }
 
+    private void ensureRestaurantExists(Long restaurantId) {
+        if (restaurantPersistencePort.getRestaurantById(restaurantId) == null) {
+            throw new DomainException(OrderMessages.RESTAURANT_NOT_FOUND);
+        }
+    }
+
+    private void validateAndFillDish(OrderDishModel orderDish, Long restaurantId) {
+        DishModel dish = dishPersistencePort.findById(orderDish.getDish().getId());
+        if (dish == null || !dish.getRestaurant().getId().equals(restaurantId)) {
+            throw new DomainException(OrderMessages.DISH_NOT_FROM_RESTAURANT);
+        }
+        orderDish.setDish(dish);
+    }
+
     @Override
     public GenericPage<OrderModel> getOrdersByStatus(OrderStatus status, Integer page, Integer size) {
-        // 1. Validar que el que llama es un Empleado
-        String callerRole = authContextPort.getAuthenticatedUserRole();
-        if (!"ROLE_EMPLEADO".equals(callerRole)) {
-            throw new DomainException("Only employees can access this service.");
-        }
 
-        // 2. Obtener el ID del empleado desde el Token
+        requireRole(OrderConstants.ROLE_EMPLEADO, OrderMessages.ONLY_EMPLOYEES_ACCESS);
+
         Long employeeId = authContextPort.getAuthenticatedUserId();
-
-        // 3. REGLA DE NEGOCIO: Buscar a qué restaurante pertenece este empleado
         Long restaurantId = employeeRestaurantPersistencePort.getRestaurantIdByEmployeeId(employeeId);
+
         if (restaurantId == null) {
-            throw new DomainException("The employee is not assigned to any restaurant.");
+            throw new DomainException(OrderMessages.EMPLOYEE_NOT_ASSIGNED);
         }
 
-        // 4. Retornar los pedidos filtrados por ese restaurante y el estado solicitado
         return orderPersistencePort.getOrdersByStatusAndRestaurant(status, restaurantId, page, size);
     }
 
     @Override
     public void assignOrder(Long orderId) {
-        // 1. Validar que el que llama sea un Empleado
-        String role = authContextPort.getAuthenticatedUserRole();
-        if (!"ROLE_EMPLEADO".equals(role)) {
-            throw new DomainException("Only employees can assign themselves to orders.");
-        }
 
-        // 2. Obtener el ID del empleado y su restaurante
+        requireRole(OrderConstants.ROLE_EMPLEADO, OrderMessages.ONLY_EMPLOYEES_ASSIGN);
+
         Long employeeId = authContextPort.getAuthenticatedUserId();
         Long restaurantId = employeeRestaurantPersistencePort.getRestaurantIdByEmployeeId(employeeId);
 
-        // 3. Buscar el pedido
-        OrderModel order = orderPersistencePort.findById(orderId);
-        if (order == null) {
-            throw new DomainException("The order does not exist.");
-        }
+        OrderModel order = fetchOrderOrThrow(orderId, OrderMessages.ORDER_DOES_NOT_EXIST);
 
-        // 4. REGLA: El pedido debe estar en estado PENDIENTE para ser tomado
         if (order.getStatus() != OrderStatus.PENDIENTE) {
-            throw new DomainException("Only pending orders can be assigned.");
+            throw new DomainException(OrderMessages.ONLY_PENDING_ASSIGN);
         }
 
-        // 5. REGLA: El pedido debe ser del mismo restaurante que el empleado
         if (!order.getRestaurant().getId().equals(restaurantId)) {
-            throw new DomainException("You can only assign yourself to orders from your own restaurant.");
+            throw new DomainException(OrderMessages.ORDER_DIFFERENT_RESTAURANT);
         }
 
-        // 6. Asignar empleado y cambiar estado
         order.setChefId(employeeId);
         order.setStatus(OrderStatus.EN_PREPARACION);
 
-        // 7. Guardar cambios
         orderPersistencePort.saveOrder(order);
     }
 
     @Override
     public void markOrderAsReady(Long orderId) {
-        // 1. Validar que el que llama sea EMPLEADO
-        String role = authContextPort.getAuthenticatedUserRole();
-        if (!"ROLE_EMPLEADO".equals(role)) {
-            throw new DomainException("Only employees can mark orders as ready.");
-        }
 
-        // 2. Buscar el pedido
-        OrderModel order = orderPersistencePort.findById(orderId);
-        if (order == null) throw new DomainException("Order not found.");
+        requireRole(OrderConstants.ROLE_EMPLEADO, OrderMessages.ONLY_EMPLOYEES_MARK_READY);
 
-        // 3. REGLA: Solo pedidos EN_PREPARACION pueden pasar a LISTO
+        OrderModel order = fetchOrderOrThrow(orderId, OrderMessages.ORDER_NOT_FOUND);
+
         if (order.getStatus() != OrderStatus.EN_PREPARACION) {
-            throw new DomainException("The order is not in preparation.");
+            throw new DomainException(OrderMessages.ORDER_NOT_IN_PREPARATION);
         }
 
-        // 4. REGLA: Solo el CHEF asignado puede marcarlo como listo
         Long employeeId = authContextPort.getAuthenticatedUserId();
-        if (!order.getChefId().equals(employeeId)) {
-            throw new DomainException("You can only mark as ready orders assigned to you.");
+        if (!employeeId.equals(order.getChefId())) {
+            throw new DomainException(OrderMessages.ONLY_CHEF_CAN_MARK);
         }
 
-        // 5. Generar PIN de seguridad (6 dígitos aleatorios)
-        String pin = String.format("%06d", (int)(Math.random() * 1000000));
+        String pin = generateSecurityPin();
         order.setSecurityPin(pin);
         order.setStatus(OrderStatus.LISTO);
 
-        // 6. Obtener datos del cliente (Necesitamos su teléfono desde el microservicio Usuarios)
         UserModel client = userExternalPort.getUserById(order.getClientId());
-
-        // 7. Enviar notificación a través del puerto de mensajería
-        String message = "Tu pedido está listo! Reclámalo con el PIN: " + pin;
+        String message = OrderMessages.READY_MESSAGE_PREFIX + pin;
         messagingExternalPort.sendMessage(client.getPhone(), message);
 
-        // 8. Persistir cambios
         orderPersistencePort.saveOrder(order);
     }
 
     @Override
     public void deliverOrder(Long orderId, String pin) {
-        // 1. Validar Rol
-        if (!"ROLE_EMPLEADO".equals(authContextPort.getAuthenticatedUserRole())) {
-            throw new DomainException("Only employees can deliver orders.");
-        }
 
-        // 2. Buscar pedido
-        OrderModel order = orderPersistencePort.findById(orderId);
-        if (order == null) throw new DomainException("Order not found.");
+        requireRole(OrderConstants.ROLE_EMPLEADO, OrderMessages.ONLY_EMPLOYEES_DELIVER);
 
-        // 3. REGLA: Solo pedidos en estado LISTO pueden ser entregados
+        OrderModel order = fetchOrderOrThrow(orderId, OrderMessages.ORDER_NOT_FOUND);
+
         if (order.getStatus() != OrderStatus.LISTO) {
-            throw new DomainException("The order is not ready for delivery.");
+            throw new DomainException(OrderMessages.ORDER_NOT_READY_FOR_DELIVERY);
         }
 
-        // 4. REGLA: El PIN debe coincidir
         if (!order.getSecurityPin().equals(pin)) {
-            throw new DomainException("Invalid security PIN. Delivery rejected.");
+            throw new DomainException(OrderMessages.INVALID_SECURITY_PIN);
         }
 
-        // 5. Cambiar estado y limpiar PIN (por seguridad)
         order.setStatus(OrderStatus.ENTREGADO);
         order.setSecurityPin(null);
 
@@ -202,29 +158,42 @@ public class OrderUseCase implements IOrderServicePort {
 
     @Override
     public void cancelOrder(Long orderId) {
-        // 1. Validar que sea un Cliente
-        if (!"ROLE_CLIENTE".equals(authContextPort.getAuthenticatedUserRole())) {
-            throw new DomainException("Only clients can cancel orders.");
-        }
 
-        // 2. Buscar el pedido
-        OrderModel order = orderPersistencePort.findById(orderId);
-        if (order == null) throw new DomainException("Order not found.");
+        requireRole(OrderConstants.ROLE_CLIENTE, OrderMessages.ONLY_CLIENTS_CANCEL);
 
-        // 3. REGLA DE NEGOCIO (Seguridad): Solo el dueño del pedido puede cancelarlo
+        OrderModel order = fetchOrderOrThrow(orderId, OrderMessages.ORDER_NOT_FOUND);
+
         Long clientId = authContextPort.getAuthenticatedUserId();
         if (!order.getClientId().equals(clientId)) {
-            throw new DomainException("You can only cancel your own orders.");
+            throw new DomainException(OrderMessages.ONLY_OWNERS_CANCEL);
         }
 
-        // 4. REGLA DE NEGOCIO: Solo se puede cancelar en estado PENDIENTE
         if (order.getStatus() != OrderStatus.PENDIENTE) {
-            // Mensaje exacto solicitado en la HU
-            throw new DomainException("Lo sentimos, tu pedido ya está en preparación y no puede cancelarse");
+            throw new DomainException(OrderMessages.CANNOT_CANCEL_IN_PREPARATION);
         }
 
-        // 5. Cambiar estado a CANCELADO y guardar
         order.setStatus(OrderStatus.CANCELADO);
         orderPersistencePort.saveOrder(order);
+    }
+
+    private void requireRole(String requiredRole, String errorMessage) {
+        String callerRole = authContextPort.getAuthenticatedUserRole();
+        if (!requiredRole.equals(callerRole)) {
+            throw new DomainException(errorMessage);
+        }
+    }
+
+    private OrderModel fetchOrderOrThrow(Long orderId, String message) {
+        OrderModel order = orderPersistencePort.findById(orderId);
+        if (order == null) {
+            throw new DomainException(message);
+        }
+        return order;
+    }
+
+    private String generateSecurityPin() {
+        int max = (int) Math.pow(10, OrderConstants.PIN_LENGTH);
+        int value = ThreadLocalRandom.current().nextInt(0, max);
+        return String.format("%0" + OrderConstants.PIN_LENGTH + "d", value);
     }
 }

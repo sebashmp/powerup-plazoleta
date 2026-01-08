@@ -19,13 +19,12 @@ public class DishJpaAdapter implements IDishPersistencePort {
     private final IDishRepository dishRepository;
     private final IDishEntityMapper dishEntityMapper;
 
+    /**
+     * Combinacion entre crear y actualizar plato. Si el plato ya existe (por ID), se actualiza.
+     * Si no existe, se crea uno nuevo. Insert - Update = Upsert.
+     */
     @Override
-    public void saveDish(DishModel dishModel) {
-        dishRepository.save(dishEntityMapper.toEntity(dishModel));
-    }
-
-    @Override
-    public void updateDish(DishModel dishModel) {
+    public void upsert(DishModel dishModel) {
         dishRepository.save(dishEntityMapper.toEntity(dishModel));
     }
 

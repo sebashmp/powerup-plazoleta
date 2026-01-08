@@ -4,17 +4,16 @@ import com.pragma.powerup.domain.exception.DomainException;
 import com.pragma.powerup.domain.model.*;
 import com.pragma.powerup.domain.spi.*;
 import com.pragma.powerup.domain.usecase.factory.OrderTestFactory;
+import com.pragma.powerup.domain.util.OrderMessages;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 
 import static com.pragma.powerup.domain.usecase.factory.OrderTestConstants.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -34,9 +33,20 @@ class OrderUseCaseTest {
     private IAuthenticationContextPort authContextPort;
     @Mock
     private IEmployeeRestaurantPersistencePort employeeRestaurantPersistencePort;
+    @Mock
+    private IUserExternalPort userExternalPort;
+    @Mock
+    private IMessagingExternalPort messagingExternalPort;
 
     @InjectMocks
     private OrderUseCase orderUseCase;
+
+    @Captor
+    private ArgumentCaptor<String> stringCaptor;
+    @Captor
+    private ArgumentCaptor<String> messageCaptor;
+    @Captor
+    private ArgumentCaptor<OrderModel> orderCaptor;
 
     private OrderModel order;
 
@@ -305,5 +315,230 @@ class OrderUseCaseTest {
                 savedOrder.getChefId().equals(EMPLOYEE_ID)
                         && savedOrder.getStatus() == OrderStatus.EN_PREPARACION
         ));
+    }
+
+    @Test
+    @DisplayName("markOrderAsReady - should fail when caller is not employee")
+    void markOrderAsReady_notEmployee_throws() {
+        when(authContextPort.getAuthenticatedUserRole()).thenReturn(ROLE_CLIENTE);
+
+        DomainException ex = assertThrows(DomainException.class,
+                () -> orderUseCase.markOrderAsReady(1L));
+        assertEquals(OrderMessages.ONLY_EMPLOYEES_MARK_READY, ex.getMessage());
+
+        verifyNoInteractions(orderPersistencePort, userExternalPort, messagingExternalPort);
+    }
+
+    @Test
+    @DisplayName("markOrderAsReady - should fail when order not found")
+    void markOrderAsReady_orderNotFound_throws() {
+        when(authContextPort.getAuthenticatedUserRole()).thenReturn(ROLE_EMPLEADO);
+        when(orderPersistencePort.findById(1L)).thenReturn(null);
+
+        DomainException ex = assertThrows(DomainException.class,
+                () -> orderUseCase.markOrderAsReady(1L));
+        assertEquals(OrderMessages.ORDER_NOT_FOUND, ex.getMessage());
+
+        verify(orderPersistencePort).findById(1L);
+        verifyNoMoreInteractions(orderPersistencePort);
+    }
+
+    @Test
+    @DisplayName("markOrderAsReady - should fail when order not in preparation")
+    void markOrderAsReady_notInPreparation_throws() {
+        order.setStatus(OrderStatus.PENDIENTE);
+        when(authContextPort.getAuthenticatedUserRole()).thenReturn(ROLE_EMPLEADO);
+        when(orderPersistencePort.findById(1L)).thenReturn(order);
+
+        DomainException ex = assertThrows(DomainException.class,
+                () -> orderUseCase.markOrderAsReady(1L));
+        assertEquals(OrderMessages.ORDER_NOT_IN_PREPARATION, ex.getMessage());
+
+        verify(orderPersistencePort).findById(1L);
+        verifyNoMoreInteractions(orderPersistencePort);
+    }
+
+    @Test
+    @DisplayName("markOrderAsReady - should fail when caller is not assigned chef")
+    void markOrderAsReady_notChef_throws() {
+        order.setStatus(OrderStatus.EN_PREPARACION);
+        order.setChefId(999L); // different chef
+        when(authContextPort.getAuthenticatedUserRole()).thenReturn(ROLE_EMPLEADO);
+        when(orderPersistencePort.findById(1L)).thenReturn(order);
+        when(authContextPort.getAuthenticatedUserId()).thenReturn(EMPLOYEE_ID);
+
+        DomainException ex = assertThrows(DomainException.class,
+                () -> orderUseCase.markOrderAsReady(1L));
+        assertEquals(OrderMessages.ONLY_CHEF_CAN_MARK, ex.getMessage());
+
+        verify(orderPersistencePort).findById(1L);
+        verify(authContextPort).getAuthenticatedUserId();
+        verifyNoMoreInteractions(messagingExternalPort);
+    }
+
+    @Test
+    @DisplayName("markOrderAsReady - success path: set pin, send message and save order")
+    void markOrderAsReady_success() {
+        order.setStatus(OrderStatus.EN_PREPARACION);
+        order.setChefId(EMPLOYEE_ID);
+        order.setClientId(CLIENT_ID);
+
+        when(authContextPort.getAuthenticatedUserRole()).thenReturn(ROLE_EMPLEADO);
+        when(authContextPort.getAuthenticatedUserId()).thenReturn(EMPLOYEE_ID);
+        when(orderPersistencePort.findById(1L)).thenReturn(order);
+
+        // user from external service with phone
+        UserModel client = new UserModel();
+        client.setPhone("+573001112233");
+        when(userExternalPort.getUserById(CLIENT_ID)).thenReturn(client);
+
+        // Act
+        orderUseCase.markOrderAsReady(1L);
+
+        // Assert: order updated
+        assertEquals(OrderStatus.LISTO, order.getStatus());
+        assertNotNull(order.getSecurityPin());
+        assertEquals(PIN_LENGTH, order.getSecurityPin().length());
+
+        // Assert: messaging was called with phone and message containing the PIN
+        verify(userExternalPort).getUserById(CLIENT_ID);
+        verify(messagingExternalPort).sendMessage(stringCaptor.capture(), messageCaptor.capture());
+
+        String sentPhone = stringCaptor.getValue();
+        String sentMessage = messageCaptor.getValue();
+
+        assertEquals(client.getPhone(), sentPhone);
+        assertTrue(sentMessage.startsWith(OrderMessages.READY_MESSAGE_PREFIX));
+        // message ends with the same pin set on order
+        assertTrue(sentMessage.contains(order.getSecurityPin()));
+
+        // Assert: saved
+        verify(orderPersistencePort).saveOrder(order);
+    }
+
+    @Test
+    @DisplayName("deliverOrder - should fail when caller is not employee")
+    void deliverOrder_notEmployee_throws() {
+        when(authContextPort.getAuthenticatedUserRole()).thenReturn(ROLE_CLIENTE);
+
+        DomainException ex = assertThrows(DomainException.class,
+                () -> orderUseCase.deliverOrder(1L, "000000"));
+        assertEquals(OrderMessages.ONLY_EMPLOYEES_DELIVER, ex.getMessage());
+
+        verifyNoInteractions(orderPersistencePort);
+    }
+
+    @Test
+    @DisplayName("deliverOrder - should fail when order not found")
+    void deliverOrder_orderNotFound_throws() {
+        when(authContextPort.getAuthenticatedUserRole()).thenReturn(ROLE_EMPLEADO);
+        when(orderPersistencePort.findById(1L)).thenReturn(null);
+
+        DomainException ex = assertThrows(DomainException.class,
+                () -> orderUseCase.deliverOrder(1L, "000000"));
+        assertEquals(OrderMessages.ORDER_NOT_FOUND, ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("deliverOrder - should fail when order not ready")
+    void deliverOrder_notReady_throws() {
+        order.setStatus(OrderStatus.EN_PREPARACION);
+        when(authContextPort.getAuthenticatedUserRole()).thenReturn(ROLE_EMPLEADO);
+        when(orderPersistencePort.findById(1L)).thenReturn(order);
+
+        DomainException ex = assertThrows(DomainException.class,
+                () -> orderUseCase.deliverOrder(1L, "000000"));
+        assertEquals(OrderMessages.ORDER_NOT_READY_FOR_DELIVERY, ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("deliverOrder - should fail when pin invalid")
+    void deliverOrder_invalidPin_throws() {
+        order.setStatus(OrderStatus.LISTO);
+        order.setSecurityPin("123456");
+        when(authContextPort.getAuthenticatedUserRole()).thenReturn(ROLE_EMPLEADO);
+        when(orderPersistencePort.findById(1L)).thenReturn(order);
+
+        DomainException ex = assertThrows(DomainException.class,
+                () -> orderUseCase.deliverOrder(1L, "000000"));
+        assertEquals(OrderMessages.INVALID_SECURITY_PIN, ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("deliverOrder - success path")
+    void deliverOrder_success() {
+        order.setStatus(OrderStatus.LISTO);
+        order.setSecurityPin("999999");
+        when(authContextPort.getAuthenticatedUserRole()).thenReturn(ROLE_EMPLEADO);
+        when(orderPersistencePort.findById(1L)).thenReturn(order);
+
+        orderUseCase.deliverOrder(1L, "999999");
+
+        assertEquals(OrderStatus.ENTREGADO, order.getStatus());
+        assertNull(order.getSecurityPin());
+        verify(orderPersistencePort).saveOrder(order);
+    }
+
+    @Test
+    @DisplayName("cancelOrder - should fail when caller is not client")
+    void cancelOrder_notClient_throws() {
+        when(authContextPort.getAuthenticatedUserRole()).thenReturn(ROLE_EMPLEADO);
+
+        DomainException ex = assertThrows(DomainException.class,
+                () -> orderUseCase.cancelOrder(1L));
+        assertEquals(OrderMessages.ONLY_CLIENTS_CANCEL, ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("cancelOrder - should fail when order not found")
+    void cancelOrder_orderNotFound_throws() {
+        when(authContextPort.getAuthenticatedUserRole()).thenReturn(ROLE_CLIENTE);
+        when(orderPersistencePort.findById(1L)).thenReturn(null);
+
+        DomainException ex = assertThrows(DomainException.class,
+                () -> orderUseCase.cancelOrder(1L));
+        assertEquals(OrderMessages.ORDER_NOT_FOUND, ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("cancelOrder - should fail when caller is not owner")
+    void cancelOrder_notOwner_throws() {
+        order.setClientId(999L);
+        when(authContextPort.getAuthenticatedUserRole()).thenReturn(ROLE_CLIENTE);
+        when(orderPersistencePort.findById(1L)).thenReturn(order);
+        when(authContextPort.getAuthenticatedUserId()).thenReturn(CLIENT_ID); // diferente de 999
+
+        DomainException ex = assertThrows(DomainException.class,
+                () -> orderUseCase.cancelOrder(1L));
+        assertEquals(OrderMessages.ONLY_OWNERS_CANCEL, ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("cancelOrder - should fail when order not pending")
+    void cancelOrder_notPending_throws() {
+        order.setClientId(CLIENT_ID);
+        order.setStatus(OrderStatus.EN_PREPARACION);
+        when(authContextPort.getAuthenticatedUserRole()).thenReturn(ROLE_CLIENTE);
+        when(orderPersistencePort.findById(1L)).thenReturn(order);
+        when(authContextPort.getAuthenticatedUserId()).thenReturn(CLIENT_ID);
+
+        DomainException ex = assertThrows(DomainException.class,
+                () -> orderUseCase.cancelOrder(1L));
+        assertEquals(OrderMessages.CANNOT_CANCEL_IN_PREPARATION, ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("cancelOrder - success path")
+    void cancelOrder_success() {
+        order.setClientId(CLIENT_ID);
+        order.setStatus(OrderStatus.PENDIENTE);
+        when(authContextPort.getAuthenticatedUserRole()).thenReturn(ROLE_CLIENTE);
+        when(orderPersistencePort.findById(1L)).thenReturn(order);
+        when(authContextPort.getAuthenticatedUserId()).thenReturn(CLIENT_ID);
+
+        orderUseCase.cancelOrder(1L);
+
+        assertEquals(OrderStatus.CANCELADO, order.getStatus());
+        verify(orderPersistencePort).saveOrder(order);
     }
 }

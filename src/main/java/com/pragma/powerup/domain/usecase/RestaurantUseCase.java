@@ -1,6 +1,8 @@
 package com.pragma.powerup.domain.usecase;
 
 import com.pragma.powerup.domain.api.IRestaurantServicePort;
+import com.pragma.powerup.domain.util.RestaurantConstants;
+import com.pragma.powerup.domain.util.RestaurantMessages;
 import com.pragma.powerup.domain.exception.DomainException;
 import com.pragma.powerup.domain.model.GenericPage;
 import com.pragma.powerup.domain.model.RestaurantModel;
@@ -15,7 +17,6 @@ public class RestaurantUseCase implements IRestaurantServicePort {
     private final IUserExternalPort userExternalPort;
     private final IAuthenticationContextPort authContextPort;
     private final IEmployeeRestaurantPersistencePort employeeRestaurantPersistencePort;
-    private final String ADMIN_ROLE = "ROLE_ADMIN";
 
     public RestaurantUseCase(IRestaurantPersistencePort restaurantPersistencePort,
                              IUserExternalPort userExternalPort,
@@ -29,13 +30,10 @@ public class RestaurantUseCase implements IRestaurantServicePort {
 
     @Override
     public void saveRestaurant(RestaurantModel restaurantModel) {
-        // 1. REGLA DE NEGOCIO: Validar que el que llama sea Administrador
-        String callerRole = authContextPort.getAuthenticatedUserRole();
-        if (!ADMIN_ROLE.equals(callerRole)) {
-            throw new DomainException("Only an administrator can create a restaurant.");
-        }
+        requireRole(RestaurantConstants.ROLE_ADMIN, RestaurantMessages.ONLY_ADMIN_CREATE);
 
         validateRestaurantRules(restaurantModel);
+
         restaurantPersistencePort.saveRestaurant(restaurantModel);
     }
 
@@ -46,41 +44,52 @@ public class RestaurantUseCase implements IRestaurantServicePort {
 
     @Override
     public void linkEmployeeToRestaurant(Long restaurantId, Long employeeId) {
-        // 1. Obtener el restaurante
-        RestaurantModel restaurant = restaurantPersistencePort.getRestaurantById(restaurantId);
-        if (restaurant == null) {
-            throw new DomainException("The restaurant does not exist.");
-        }
+        RestaurantModel restaurant = fetchRestaurantOrThrow(restaurantId, RestaurantMessages.RESTAURANT_NOT_FOUND);
 
-        // 2. REGLA DE NEGOCIO: Solo el dueño puede vincular empleados
         Long authenticatedOwnerId = authContextPort.getAuthenticatedUserId();
         if (!restaurant.getOwnerId().equals(authenticatedOwnerId)) {
-            throw new DomainException("Only the owner of the restaurant can link employees to it.");
+            throw new DomainException(RestaurantMessages.ONLY_OWNER_LINK_EMPLOYEE);
         }
 
-        // 3. Persistir el vínculo
         employeeRestaurantPersistencePort.saveEmployeeRestaurant(employeeId, restaurantId);
     }
 
     private void validateRestaurantRules(RestaurantModel restaurant) {
-        // 2. REGLA DE NEGOCIO: Validar que el ID asignado sea un Propietario (Llamada Feign)
+        // 1) Owner must be a real owner in Users service
         if (!userExternalPort.isOwnerUser(restaurant.getOwnerId())) {
-            throw new DomainException("The provided owner ID does not belong to a user with the 'Owner' role.");
+            throw new DomainException(RestaurantMessages.OWNER_ID_NOT_OWNER);
         }
 
-        // 3. NIT y Teléfono únicamente numéricos
-        if (!restaurant.getNit().matches("\\d+")) {
-            throw new DomainException("NIT must be numeric.");
+        // 2) NIT numeric
+        if (!restaurant.getNit().matches(RestaurantConstants.NIT_REGEX)) {
+            throw new DomainException(RestaurantMessages.NIT_MUST_BE_NUMERIC);
         }
 
-        // Validación del nombre (no solo números)
-        if (restaurant.getName().matches("\\d+")) {
-            throw new DomainException("Restaurant name cannot consist only of numbers.");
+        // 3) Name must not be only numeric
+        if (restaurant.getName() == null || restaurant.getName().matches(RestaurantConstants.NUMERIC_ONLY_REGEX)) {
+            throw new DomainException(RestaurantMessages.NAME_CANNOT_BE_NUMERIC);
         }
 
-        // Validación del teléfono (max 13 y numérico)
-        if (!restaurant.getPhone().matches("\\+?\\d+") || restaurant.getPhone().length() > 13) {
-            throw new DomainException("Invalid phone format or length.");
+        // 4) Phone format and length
+        if (restaurant.getPhone() == null
+                || !restaurant.getPhone().matches(RestaurantConstants.PHONE_REGEX)
+                || restaurant.getPhone().length() > RestaurantConstants.PHONE_MAX_LENGTH) {
+            throw new DomainException(RestaurantMessages.INVALID_PHONE_FORMAT);
         }
+    }
+
+    private void requireRole(String requiredRole, String errorMessage) {
+        String callerRole = authContextPort.getAuthenticatedUserRole();
+        if (!requiredRole.equals(callerRole)) {
+            throw new DomainException(errorMessage);
+        }
+    }
+
+    private RestaurantModel fetchRestaurantOrThrow(Long restaurantId, String message) {
+        RestaurantModel restaurant = restaurantPersistencePort.getRestaurantById(restaurantId);
+        if (restaurant == null) {
+            throw new DomainException(message);
+        }
+        return restaurant;
     }
 }

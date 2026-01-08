@@ -90,7 +90,7 @@ class DishUseCaseTest {
         // Assert
         assertTrue(dishModel.getActive(), "Dish should be active by default");
         assertEquals(restaurantModel, dishModel.getRestaurant());
-        verify(dishPersistencePort).saveDish(dishModel);
+        verify(dishPersistencePort).upsert(dishModel);
     }
 
     @Test
@@ -104,7 +104,7 @@ class DishUseCaseTest {
                 () -> dishUseCase.saveDish(dishModel));
 
         assertEquals("The associated restaurant does not exist.", exception.getMessage());
-        verify(dishPersistencePort, never()).saveDish(any());
+        verify(dishPersistencePort, never()).upsert(any());
     }
 
     @Test
@@ -118,7 +118,7 @@ class DishUseCaseTest {
                 () -> dishUseCase.saveDish(dishModel));
 
         assertEquals("Only the owner of the restaurant can create dishes.", exception.getMessage());
-        verify(dishPersistencePort, never()).saveDish(any());
+        verify(dishPersistencePort, never()).upsert(any());
     }
 
     @Test
@@ -161,7 +161,7 @@ class DishUseCaseTest {
         // Assert
         assertEquals(200, dishInDb.getPrice());
         assertEquals("New description", dishInDb.getDescription());
-        verify(dishPersistencePort).updateDish(dishInDb);
+        verify(dishPersistencePort).upsert(dishInDb);
     }
 
     @Test
@@ -180,7 +180,7 @@ class DishUseCaseTest {
 
         assertEquals("The dish does not exist.", exception.getMessage());
         // Verificamos que nunca se llamó al puerto de actualización
-        verify(dishPersistencePort, never()).updateDish(any());
+        verify(dishPersistencePort, never()).upsert(any());
     }
 
     @Test
@@ -202,7 +202,7 @@ class DishUseCaseTest {
 
         // Assert
         assertFalse(dishInDb.getActive());
-        verify(dishPersistencePort).updateDish(dishInDb);
+        verify(dishPersistencePort).upsert(dishInDb);
     }
 
     @Test
